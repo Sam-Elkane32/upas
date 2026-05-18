@@ -1,0 +1,7 @@
+name: UAPS
+php: '8.4'
+secured: false
+aliases: {  }
+services: {  }
+integrations:
+    forge: {  }
