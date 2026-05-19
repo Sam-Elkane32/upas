@@ -5,8 +5,10 @@
  * Call this before Laravel boots (from api/index.php).
  */
 $projectViews = dirname(__DIR__).'/storage/framework/views';
+$compiledViews = '/tmp/views';
 
 $tmpDirs = [
+    $compiledViews,
     '/tmp/storage',
     '/tmp/storage/framework',
     '/tmp/storage/framework/cache',
@@ -21,6 +23,21 @@ $tmpDirs = [
 foreach ($tmpDirs as $dir) {
     if (! is_dir($dir)) {
         mkdir($dir, 0755, true);
+    }
+}
+
+// Precompiled Blade files from build live under storage/ (read-only on Lambda).
+// Copy them into /tmp so Laravel can read and update compiled views at runtime.
+if (is_dir($projectViews)) {
+    foreach (scandir($projectViews) as $file) {
+        if ($file === '.' || $file === '..' || $file === '.gitignore') {
+            continue;
+        }
+        $src = $projectViews.'/'.$file;
+        $dest = $compiledViews.'/'.$file;
+        if (is_file($src) && (! is_file($dest) || filesize($src) !== filesize($dest))) {
+            @copy($src, $dest);
+        }
     }
 }
 
@@ -47,12 +64,9 @@ $vercelCacheEnv = [
     'APP_PACKAGES_CACHE' => '/tmp/packages.php',
     'APP_ROUTES_CACHE' => '/tmp/routes-v7.php',
     'APP_SERVICES_CACHE' => '/tmp/services.php',
+    'VIEW_COMPILED_PATH' => $compiledViews,
     'LARAVEL_STORAGE_PATH' => '/tmp/storage',
 ];
-
-if (is_dir($projectViews)) {
-    $vercelCacheEnv['VIEW_COMPILED_PATH'] = $projectViews;
-}
 
 foreach ($vercelCacheEnv as $key => $value) {
     if (! getenv($key)) {
