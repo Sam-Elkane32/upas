@@ -11,20 +11,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- Assets: prefer built files from manifest; CDN fallback if unavailable -->
-    @php
-        $manifestPath = public_path('build/manifest.json');
-        $manifest = file_exists($manifestPath) ? json_decode(file_get_contents($manifestPath), true) : null;
-        $cssFile = $manifest['resources/css/app.css']['file'] ?? null;
-        $jsFile = $manifest['resources/js/app.js']['file'] ?? null;
-    @endphp
-    @if($cssFile && $jsFile)
-        <link rel="stylesheet" href="{{ asset('build/' . $cssFile) }}">
-        <script type="module" src="{{ asset('build/' . $jsFile) }}"></script>
-    @else
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    @endif
+    @include('partials.vite-production-assets')
     
     <style>
         body {

@@ -1,4 +1,5 @@
 {
+  "outputDirectory": "public",
   "buildCommand": "npm ci && npm run build",
   "functions": {
     "api/index.php": {
@@ -10,18 +11,10 @@
   "routes": [
     {
       "src": "/build/(.*)",
-      "dest": "/public/build/$1"
+      "dest": "/build/$1"
     },
     {
-      "src": "/images/(.*)",
-      "dest": "/public/images/$1"
-    },
-    {
-      "src": "/(favicon\\.ico|robots\\.txt)",
-      "dest": "/public/$1"
-    },
-    {
-      "src": "/(.*\\.(?:css|js|map|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot))",
+      "src": "/(.*\\.(?:css|js|map|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot|txt))$",
       "dest": "/public/$1"
     },
     {
