@@ -19,6 +19,31 @@ Route::get('/', function () {
     return view('landing');
 })->name('landing');
 
+Route::get('/health/database', function () {
+    $started = hrtime(true);
+
+    try {
+        \Illuminate\Support\Facades\DB::select('select 1');
+        $driver = config('database.default');
+
+        return response()->json([
+            'database' => 'ok',
+            'driver' => $driver,
+            'host' => config("database.connections.{$driver}.host"),
+            'ms' => round((hrtime(true) - $started) / 1e6, 1),
+        ]);
+    } catch (\Throwable $e) {
+        $driver = config('database.default');
+
+        return response()->json([
+            'database' => 'error',
+            'driver' => $driver,
+            'host' => config("database.connections.{$driver}.host"),
+            'message' => $e->getMessage(),
+        ], 503);
+    }
+});
+
 // Dashboard Routes
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 Route::get('/dashboard/data', [DashboardController::class, 'getData'])->middleware(['auth'])->name('dashboard.data');
