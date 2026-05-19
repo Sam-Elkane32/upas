@@ -4,8 +4,9 @@
  * Vercel / Lambda bootstrap: only /tmp is writable.
  * Call this before Laravel boots (from api/index.php).
  */
+$projectViews = dirname(__DIR__).'/storage/framework/views';
+
 $tmpDirs = [
-    '/tmp/views',
     '/tmp/storage',
     '/tmp/storage/framework',
     '/tmp/storage/framework/cache',
@@ -46,9 +47,12 @@ $vercelCacheEnv = [
     'APP_PACKAGES_CACHE' => '/tmp/packages.php',
     'APP_ROUTES_CACHE' => '/tmp/routes-v7.php',
     'APP_SERVICES_CACHE' => '/tmp/services.php',
-    'VIEW_COMPILED_PATH' => '/tmp/views',
     'LARAVEL_STORAGE_PATH' => '/tmp/storage',
 ];
+
+if (is_dir($projectViews)) {
+    $vercelCacheEnv['VIEW_COMPILED_PATH'] = $projectViews;
+}
 
 foreach ($vercelCacheEnv as $key => $value) {
     if (! getenv($key)) {
