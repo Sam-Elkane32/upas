@@ -1,7 +1,8 @@
 <?php
 
-$app = require_once __DIR__ . '/../bootstrap/app.php';
+/**
+ * Serverless entry point for Vercel (vercel-php runtime).
+ */
+require __DIR__.'/vercel.php';
 
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-return require __DIR__ . '/../public/index.php';
+require __DIR__.'/../public/index.php';
