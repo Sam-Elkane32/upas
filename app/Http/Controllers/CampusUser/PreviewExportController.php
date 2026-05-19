@@ -20,8 +20,8 @@ class PreviewExportController extends Controller
         $user = Auth::user();
         
         // Ensure user is Campus User
-        if (!$user->isCreatorEditor()) {
-            abort(403, 'Only Campus User can access this feature.');
+        if (! $user->isPlanningCoordinator()) {
+            abort(403, 'Only Planning Coordinator can access this feature.');
         }
 
         // Get filter parameters (same as ReportController)

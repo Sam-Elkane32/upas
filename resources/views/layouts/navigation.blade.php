@@ -58,7 +58,7 @@
             @endif
             
             <!-- Planning Coordinator - Data encoder and form submitter -->
-            @if(auth()->user()->isCreatorEditor())
+            @if(auth()->user()->isPlanningCoordinator())
             <x-nav-link :href="route('campus-user.create-submission')" :active="request()->routeIs('campus-user.create-submission') || request()->routeIs('campus-user.returned-templates')">
                 {{ __('Templates') }}
             </x-nav-link>
@@ -183,8 +183,8 @@
             </x-responsive-nav-link>
             @endif
             
-            <!-- Planning Coordinator (Creator/Editor) - Only they can create submissions -->
-            @if(auth()->user()->isCreatorEditor())
+            <!-- Planning Coordinator - create and manage template submissions -->
+            @if(auth()->user()->isPlanningCoordinator())
             <x-responsive-nav-link :href="route('campus-user.create-submission')" :active="request()->routeIs('campus-user.create-submission') || request()->routeIs('campus-user.returned-templates')">
                 {{ __('Templates') }}
             </x-responsive-nav-link>
@@ -197,8 +197,8 @@
             </x-responsive-nav-link>
             @endif
             
-            <!-- Planning Coordinator - Data encoder and form submitter -->
-            @if(auth()->user()->isCreatorEditor())
+            <!-- Planning Coordinator - reports -->
+            @if(auth()->user()->isPlanningCoordinator())
             <x-responsive-nav-link :href="route('campus-user.reports')" :active="request()->routeIs('campus-user.reports*') || request()->routeIs('campus-user.reports.export*')">
                 {{ __('Reports') }}
             </x-responsive-nav-link>

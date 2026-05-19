@@ -41,8 +41,13 @@ class UserController extends Controller
                 ->orderBy('name')
                 ->get();
 
+            $developerUsers = User::where('role', User::ROLE_DEVELOPER)
+                ->orderBy('name')
+                ->get();
+
             $allUsers = User::with(['campusInfo'])
                 ->where('role', '!=', 'super_admin')
+                ->where('role', '!=', User::ROLE_DEVELOPER)
                 ->whereNotIn('id', $divisionUsers->pluck('id'))
                 ->orderBy('campus_code')
                 ->get();
@@ -51,8 +56,10 @@ class UserController extends Controller
         } else {
             $campuses = Campus::where('code', $user->campus_code)->get();
             $divisionUsers = collect();
+            $developerUsers = collect();
             $allUsers = User::where('campus_code', $user->campus_code)
                 ->where('role', '!=', 'super_admin')
+                ->where('role', '!=', User::ROLE_DEVELOPER)
                 ->with(['campusInfo'])
                 ->orderBy('name')
                 ->get();
@@ -60,7 +67,7 @@ class UserController extends Controller
             $usersByCampus = $allUsers->groupBy('campus_code');
         }
 
-        return view('users.index', compact('campuses', 'usersByCampus', 'superAdmins', 'divisionUsers'));
+        return view('users.index', compact('campuses', 'usersByCampus', 'superAdmins', 'divisionUsers', 'developerUsers'));
     }
 
     /**

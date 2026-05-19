@@ -1,8 +1,12 @@
 @php
     $user = auth()->user();
     $fabLimit = 24;
-    $fabNotifications = $user->notifications()->latest()->limit($fabLimit)->get();
-    $fabUnread = $user->unreadNotifications()->count();
+    $fabNotifications = collect();
+    $fabUnread = 0;
+    if (\Illuminate\Support\Facades\Schema::hasTable('notifications')) {
+        $fabNotifications = $user->notifications()->latest()->limit($fabLimit)->get();
+        $fabUnread = $user->unreadNotifications()->count();
+    }
 
     $fabIsUnlockedNotif = static function (array $data): bool {
         $t = strtolower((string) ($data['title'] ?? ''));

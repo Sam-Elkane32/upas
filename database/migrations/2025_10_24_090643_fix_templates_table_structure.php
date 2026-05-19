@@ -23,11 +23,9 @@ return new class extends Migration
             $table->string('kpi_title');
             $table->longText('fields_json'); // Template field structure
             $table->enum('status', ['Draft', 'Published'])->default('Draft');
-            $table->string('created_by'); // Campus Admin ID
+            $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->string('campus_code');
             $table->timestamps();
-            
-            $table->foreign('created_by')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('campus_code')->references('code')->on('campuses')->onDelete('cascade');
         });
     }

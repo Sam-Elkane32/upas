@@ -4,7 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 class Setting extends Model
 {
@@ -22,18 +24,26 @@ class Setting extends Model
      */
     public static function get(string $key, $default = null)
     {
-        $setting = self::where('key', $key)->first();
-        
-        if (!$setting) {
+        try {
+            if (! Schema::hasTable('settings')) {
+                return $default;
+            }
+
+            $setting = self::where('key', $key)->first();
+
+            if (! $setting) {
+                return $default;
+            }
+
+            return match ($setting->type) {
+                'boolean' => (bool) $setting->value,
+                'integer' => (int) $setting->value,
+                'json' => json_decode($setting->value, true),
+                default => $setting->value,
+            };
+        } catch (QueryException $e) {
             return $default;
         }
-
-        return match($setting->type) {
-            'boolean' => (bool) $setting->value,
-            'integer' => (int) $setting->value,
-            'json' => json_decode($setting->value, true),
-            default => $setting->value,
-        };
     }
 
     /**

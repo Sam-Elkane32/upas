@@ -121,6 +121,63 @@
                         </div>
                     @endif
 
+                    @if(auth()->user()->isSuperAdmin() && isset($developerUsers) && $developerUsers->isNotEmpty())
+                        <!-- Developer accounts (Messages-only beta testers) -->
+                        <div class="mb-6">
+                            <details class="group border border-purple-200 rounded-lg overflow-hidden">
+                                <summary class="flex items-center justify-between px-4 py-3 bg-purple-50 hover:bg-purple-100 cursor-pointer list-none">
+                                    <span class="font-medium text-gray-900">Developer Accounts</span>
+                                    <span class="text-sm text-gray-500">{{ $developerUsers->count() }} user(s)</span>
+                                </summary>
+                                <div class="border-t border-purple-200 bg-white">
+                                    <p class="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">
+                                        Beta / support accounts with Messages-only access. Not campus staff.
+                                    </p>
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-200">
+                                            @foreach($developerUsers as $u)
+                                            <tr class="hover:bg-gray-50">
+                                                <td class="px-4 py-2">
+                                                    <div class="text-sm font-medium text-gray-900">{{ $u->name }}</div>
+                                                    <div class="text-xs text-gray-500">{{ $u->email }} · {{ $u->employee_id }}</div>
+                                                </td>
+                                                <td class="px-4 py-2">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                                        Developer
+                                                    </span>
+                                                </td>
+                                                <td class="px-4 py-2">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $u->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                                        {{ $u->is_active ? 'Active' : 'Inactive' }}
+                                                    </span>
+                                                </td>
+                                                <td class="px-4 py-2">
+                                                    <div class="flex items-center gap-3">
+                                                        <a href="{{ route('super-admin.users.show', $u) }}" class="text-blue-600 hover:text-blue-900 text-sm">View</a>
+                                                        <form method="POST" action="{{ route('super-admin.users.destroy', $u) }}" class="inline" onsubmit="return confirm('Are you sure you want to delete this developer account?');">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="text-red-600 hover:text-red-900 text-sm">Delete</button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </details>
+                        </div>
+                    @endif
+
                     @if(!$campuses || count($campuses) === 0)
                         <div class="text-center py-12">
                             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -17,7 +17,7 @@ return new class extends Migration
         Schema::create('approvals', function (Blueprint $table) {
             $table->id();
             $table->string('approval_id')->unique(); // UUID for approval record
-            $table->string('submission_id'); // Linked to submissions.id
+            $table->foreignId('submission_id')->constrained('submissions')->cascadeOnDelete();
             $table->string('accomp_term'); // Year or semester covered
             $table->string('sdp_ref')->nullable(); // Strategic Development Plan ref
             $table->decimal('target_q1', 10, 2)->default(0);
@@ -34,16 +34,9 @@ return new class extends Migration
             $table->decimal('rate', 5, 2)->default(0); // Auto: (accomp_total ÷ target_total) × 100
             $table->enum('rating', ['Outstanding', 'Very Satisfactory', 'Satisfactory', 'Fair', 'Needs Improvement'])->default('Needs Improvement');
             $table->text('remarks')->nullable(); // Admin comments
-            $table->string('validated_by'); // Auto — Campus Admin ID
+            $table->foreignId('validated_by')->constrained('users')->cascadeOnDelete();
             $table->timestamp('validated_at')->nullable();
             $table->timestamps();
-            
-            // Foreign keys
-            $table->foreign('submission_id')->references('id')->on('submissions')->onDelete('cascade');
-            $table->foreign('validated_by')->references('id')->on('users')->onDelete('cascade');
-            
-            // Unique constraint to prevent duplicate approvals per submission
-            $table->unique('submission_id');
         });
     }
 

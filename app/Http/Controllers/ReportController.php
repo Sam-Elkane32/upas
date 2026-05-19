@@ -132,7 +132,7 @@ class ReportController extends Controller
         $viewData = compact('reports', 'campuses', 'stats', 'quarterlyStats', 'statusStats', 'performanceMetrics', 'filters', 'availableQuarters', 'availableStatuses', 'availableSGs');
         
         // Add Planning Coordinator specific filter options
-        if ($user->isCreatorEditor()) {
+        if ($user->isPlanningCoordinator()) {
             $viewData['availableKRAs'] = $availableKRAs ?? [];
             $viewData['availableTemplateCodes'] = $availableTemplateCodes ?? [];
         }

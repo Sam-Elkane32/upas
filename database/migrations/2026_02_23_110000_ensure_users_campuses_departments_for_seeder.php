@@ -40,12 +40,12 @@ return new class extends Migration
 
         $driver = Schema::getConnection()->getDriverName();
 
-        if ($driver === 'sqlite' && Schema::hasTable('users')) {
-            $sqliteAdds = [
+        if (in_array($driver, ['sqlite', 'pgsql'], true) && Schema::hasTable('users')) {
+            $userColumnAdds = [
                 ['employee_id', fn (Blueprint $t) => $t->string('employee_id')->nullable()],
-                ['department', fn (Blueprint $t) => $t->string('department')->nullable()],
+                ['department', fn (Blueprint $t) => $t->unsignedBigInteger('department')->nullable()],
                 ['position', fn (Blueprint $t) => $t->string('position')->nullable()],
-                ['role', fn (Blueprint $t) => $t->string('role')->default('creator_editor')],
+                ['role', fn (Blueprint $t) => $t->string('role', 50)->default('creator_editor')],
                 ['campus', fn (Blueprint $t) => $t->string('campus')->nullable()],
                 ['campus_code', fn (Blueprint $t) => $t->string('campus_code', 50)->nullable()],
                 ['phone_number', fn (Blueprint $t) => $t->string('phone_number')->nullable()],
@@ -54,7 +54,7 @@ return new class extends Migration
                 ['approved_at', fn (Blueprint $t) => $t->timestamp('approved_at')->nullable()],
                 ['approved_by', fn (Blueprint $t) => $t->unsignedBigInteger('approved_by')->nullable()],
             ];
-            foreach ($sqliteAdds as [$col, $fn]) {
+            foreach ($userColumnAdds as [$col, $fn]) {
                 if (!Schema::hasColumn('users', $col)) {
                     Schema::table('users', function (Blueprint $table) use ($fn) {
                         $fn($table);
@@ -62,6 +62,10 @@ return new class extends Migration
                 }
             }
 
+            return;
+        }
+
+        if ($driver !== 'mysql' || !Schema::hasTable('users')) {
             return;
         }
 

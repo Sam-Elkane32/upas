@@ -31,7 +31,7 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Filter Reports</h3>
-                    <form method="GET" action="{{ auth()->user()->isAdmin() ? route('campus-admin.reports') : (auth()->user()->isCreatorEditor() ? route('campus-user.reports') : route('reports.index')) }}" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <form method="GET" action="{{ auth()->user()->isAdmin() ? route('campus-admin.reports') : (auth()->user()->isPlanningCoordinator() ? route('campus-user.reports') : route('reports.index')) }}" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         @if(auth()->user()->isSuperAdmin())
                         <!-- Date From -->
                         <div>
@@ -124,7 +124,7 @@
                             <button type="submit" class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
                                 Apply Filters
                             </button>
-                            <a href="{{ auth()->user()->isAdmin() ? route('campus-admin.reports') : (auth()->user()->isCreatorEditor() ? route('campus-user.reports') : route('reports.index')) }}" class="inline-flex items-center px-4 py-2 bg-gray-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 active:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                            <a href="{{ auth()->user()->isAdmin() ? route('campus-admin.reports') : (auth()->user()->isPlanningCoordinator() ? route('campus-user.reports') : route('reports.index')) }}" class="inline-flex items-center px-4 py-2 bg-gray-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 active:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition ease-in-out duration-150">
                                 Clear
                             </a>
                         </div>
@@ -134,7 +134,7 @@
             @endif
 
             <!-- Filters Section for Planning Coordinators -->
-            @if(auth()->user()->isCreatorEditor())
+            @if(auth()->user()->isPlanningCoordinator())
             <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-8">
                 <div class="mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 mb-2">Filter Reports</h3>
@@ -194,7 +194,7 @@
 
             <!-- Performance Overview Section -->
             <div class="mb-8">
-                @if(auth()->user()->isCreatorEditor())
+                @if(auth()->user()->isPlanningCoordinator())
                 <div class="mb-4">
                     <h3 class="text-lg font-semibold text-gray-900">Performance Overview</h3>
                 </div>
@@ -204,7 +204,7 @@
                 
                 <!-- Statistics Overview -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    @if(auth()->user()->isCreatorEditor())
+                    @if(auth()->user()->isPlanningCoordinator())
                     <!-- Pending Review Card -->
                     <div class="bg-white overflow-hidden shadow-lg rounded-xl hover:shadow-xl transition-all duration-300 border-l-4 border-yellow-500">
                         <div class="p-6">
@@ -363,7 +363,7 @@
                         </div>
                     </div>
                 </div>
-                @elseif(auth()->user()->isCreatorEditor())
+                @elseif(auth()->user()->isPlanningCoordinator())
                 <!-- Performance Metrics for Planning Coordinator (calculated from stats) -->
                 @php
                     $totalSubs = $stats['total_submissions'] ?? 0;
@@ -417,9 +417,9 @@
                         <div class="p-6 border-b border-gray-200">
                             <h3 class="text-lg font-semibold text-gray-900">Submissions by Quarter</h3>
                         </div>
-                        <div class="{{ auth()->user()->isCreatorEditor() || auth()->user()->isAdmin() ? 'p-14' : 'p-6' }}">
+                        <div class="{{ auth()->user()->isPlanningCoordinator() || auth()->user()->isAdmin() ? 'p-14' : 'p-6' }}">
                             @if(isset($quarterlyStats) && $quarterlyStats->count() > 0)
-                                <div style="position: relative; height: {{ auth()->user()->isCreatorEditor() || auth()->user()->isAdmin() ? '180px' : '300px' }}; width: 100%;">
+                                <div style="position: relative; height: {{ auth()->user()->isPlanningCoordinator() || auth()->user()->isAdmin() ? '180px' : '300px' }}; width: 100%;">
                                     <canvas id="quarterChart"></canvas>
                                 </div>
                             @else
@@ -438,9 +438,9 @@
                         <div class="p-6 border-b border-gray-200">
                             <h3 class="text-lg font-semibold text-gray-900">Submissions by Status</h3>
                         </div>
-                        <div class="{{ auth()->user()->isCreatorEditor() || auth()->user()->isAdmin() ? 'p-10' : 'p-6' }}">
+                        <div class="{{ auth()->user()->isPlanningCoordinator() || auth()->user()->isAdmin() ? 'p-10' : 'p-6' }}">
                             @if(isset($statusStats) && $statusStats->count() > 0)
-                                <div style="position: relative; height: {{ auth()->user()->isCreatorEditor() || auth()->user()->isAdmin() ? '180px' : '300px' }}; width: 100%;">
+                                <div style="position: relative; height: {{ auth()->user()->isPlanningCoordinator() || auth()->user()->isAdmin() ? '180px' : '300px' }}; width: 100%;">
                                     <canvas id="statusChart"></canvas>
                                 </div>
                             @else
@@ -507,7 +507,7 @@
                         </div>
                     @endif
                     
-                    @if(auth()->user()->isCreatorEditor())
+                    @if(auth()->user()->isPlanningCoordinator())
                         <!-- Planning Coordinator Export Section -->
                         <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 mb-4">
                             <!-- Export Buttons Row -->
@@ -562,7 +562,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    aspectRatio: {{ auth()->user()->isCreatorEditor() || auth()->user()->isAdmin() ? '2.2' : '1.5' }},
+                    aspectRatio: {{ auth()->user()->isPlanningCoordinator() || auth()->user()->isAdmin() ? '2.2' : '1.5' }},
                     scales: {
                         y: {
                             beginAtZero: true,
@@ -621,7 +621,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    aspectRatio: {{ auth()->user()->isCreatorEditor() || auth()->user()->isAdmin() ? '2.2' : '1.5' }},
+                    aspectRatio: {{ auth()->user()->isPlanningCoordinator() || auth()->user()->isAdmin() ? '2.2' : '1.5' }},
                     plugins: {
                         legend: {
                             position: 'bottom',
@@ -648,7 +648,7 @@
         @endif
 
         // Planning Coordinator Filter - Simple (no cascading needed since all options are shown)
-        @if(auth()->user()->isCreatorEditor())
+        @if(auth()->user()->isPlanningCoordinator())
         (function() {
             // All dropdowns are now independent and show all available options
             // No cascading logic needed

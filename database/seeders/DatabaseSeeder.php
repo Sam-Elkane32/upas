@@ -15,7 +15,9 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Clear existing data (child tables before parents due to FK constraints)
-        \Illuminate\Support\Facades\DB::table('campus_admins')->delete();
+        if (\Illuminate\Support\Facades\Schema::hasTable('campus_admins')) {
+            \Illuminate\Support\Facades\DB::table('campus_admins')->delete();
+        }
         User::query()->delete();
 
         // Create campuses first

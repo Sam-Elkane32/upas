@@ -25,11 +25,9 @@ return new class extends Migration
             $table->decimal('target_total', 10, 2)->default(0);
             $table->string('template_code')->nullable(); // T1-T4
             $table->enum('status', ['Draft', 'Published'])->default('Draft');
-            $table->string('created_by'); // Campus Admin ID
+            $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->string('campus_code');
             $table->timestamps();
-            
-            $table->foreign('created_by')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('campus_code')->references('code')->on('campuses')->onDelete('cascade');
         });
     }

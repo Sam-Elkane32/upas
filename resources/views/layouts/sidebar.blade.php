@@ -62,7 +62,7 @@
         || request()->routeIs('messaging.repair-tickets.*');
     $isDevelopersSubAlerts = request()->routeIs('messaging.developer-notifications.*');
     $developerTicketNotifyUnread = 0;
-    if (auth()->check() && auth()->user()->isDeveloper()) {
+    if (auth()->check() && auth()->user()->isDeveloper() && \Illuminate\Support\Facades\Schema::hasTable('notifications')) {
         $developerTicketNotifyUnread = auth()->user()->unreadNotifications()
             ->where('type', \App\Notifications\RepairTicketSubmittedNotification::class)
             ->count();
@@ -224,7 +224,7 @@
                 </li>
             @endif
 
-            @if(auth()->user()->isCreatorEditor())
+            @if(auth()->user()->isPlanningCoordinator())
                 @php
                     $isTemplatesSection = request()->routeIs('campus-user.create-submission')
                         || request()->routeIs('campus-user.returned-templates')

@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('approvals', function (Blueprint $table) {
             $table->id();
-            $table->string('form_id');
-            $table->string('submission_id');
+            $table->foreignId('form_id')->constrained('forms')->cascadeOnDelete();
+            $table->string('submission_id')->nullable();
             $table->string('accomp_term')->nullable(); // Year/Semester
             $table->string('sdp_ref')->nullable(); // SDP Reference
             $table->decimal('accomp_q1', 10, 2)->default(0);
@@ -27,12 +27,9 @@ return new class extends Migration
             $table->string('rating')->nullable(); // Descriptive Rating
             $table->text('remarks')->nullable();
             $table->enum('status', ['Pending', 'Approved', 'Returned'])->default('Pending');
-            $table->string('validated_by')->nullable(); // Campus Admin ID
+            $table->foreignId('validated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('validated_at')->nullable();
             $table->timestamps();
-            
-            $table->foreign('form_id')->references('id')->on('forms')->onDelete('cascade');
-            $table->foreign('validated_by')->references('id')->on('users')->onDelete('set null');
         });
     }
 

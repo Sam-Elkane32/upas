@@ -22,7 +22,7 @@ class TsheetExportController extends Controller
         $user = Auth::user();
         
         // Ensure user is Planning Coordinator
-        if (!$user->isCreatorEditor()) {
+        if (! $user->isPlanningCoordinator()) {
             abort(403, 'Only Planning Coordinator can access this feature.');
         }
 
@@ -83,7 +83,7 @@ class TsheetExportController extends Controller
         $user = Auth::user();
         
         // Ensure user is Planning Coordinator
-        if (!$user->isCreatorEditor()) {
+        if (! $user->isPlanningCoordinator()) {
             abort(403, 'Only Planning Coordinator can access this feature.');
         }
 

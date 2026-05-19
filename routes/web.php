@@ -79,7 +79,7 @@ Route::middleware('auth')->group(function () {
             return redirect()->route('super-admin.profile.edit');
         } elseif ($user->isAdmin()) {
             return redirect()->route('campus-admin.profile.edit');
-        } elseif ($user->hasRole('creator_editor')) {
+        } elseif ($user->isPlanningCoordinator()) {
             return redirect()->route('campus-user.profile.edit');
         }
         return app(ProfileController::class)->edit(request());
@@ -93,7 +93,7 @@ Route::middleware('auth')->group(function () {
             return redirect()->route('super-admin.profile.edit');
         } elseif ($user->isAdmin()) {
             return redirect()->route('campus-admin.profile.edit');
-        } elseif ($user->hasRole('creator_editor')) {
+        } elseif ($user->isPlanningCoordinator()) {
             return redirect()->route('campus-user.profile.edit');
         }
 
@@ -108,7 +108,7 @@ Route::middleware('auth')->group(function () {
             return redirect()->route('super-admin.profile.edit');
         } elseif ($user->isAdmin()) {
             return redirect()->route('campus-admin.profile.edit');
-        } elseif ($user->hasRole('creator_editor')) {
+        } elseif ($user->isPlanningCoordinator()) {
             return redirect()->route('campus-user.profile.edit');
         }
         return app(ProfileController::class)->destroy(request());

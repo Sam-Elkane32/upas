@@ -1,9 +1,4 @@
 <?php
-
-/**
- * Vercel / Lambda bootstrap: only /tmp is writable.
- * Call this before Laravel boots (from api/index.php).
- */
 $projectViews = dirname(__DIR__).'/storage/framework/views';
 $compiledViews = '/tmp/views';
 
@@ -26,8 +21,6 @@ foreach ($tmpDirs as $dir) {
     }
 }
 
-// Precompiled Blade files from build live under storage/ (read-only on Lambda).
-// Copy them into /tmp so Laravel can read and update compiled views at runtime.
 if (is_dir($projectViews)) {
     foreach (scandir($projectViews) as $file) {
         if ($file === '.' || $file === '..' || $file === '.gitignore') {
