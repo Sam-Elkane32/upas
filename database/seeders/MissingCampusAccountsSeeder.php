@@ -6,7 +6,6 @@ use App\Models\Campus;
 use App\Models\User;
 use App\Models\Setting;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class MissingCampusAccountsSeeder extends Seeder
 {
@@ -41,7 +40,7 @@ class MissingCampusAccountsSeeder extends Seeder
                 User::create([
                     'name' => "{$code} QA Coordinator",
                     'email' => $qaEmail,
-                    'password' => Hash::make($defaultPassword),
+                    'password' => $defaultPassword,
                     'employee_id' => $this->uniqueEmployeeId(),
                     'position' => 'QA Coordinator',
                     'role' => 'admin',
@@ -61,7 +60,7 @@ class MissingCampusAccountsSeeder extends Seeder
                 User::create([
                     'name' => "{$code} Planning Coordinator",
                     'email' => $pcEmail,
-                    'password' => Hash::make($defaultPassword),
+                    'password' => $defaultPassword,
                     'employee_id' => $this->uniqueEmployeeId(),
                     'position' => 'Planning Coordinator',
                     'role' => 'creator_editor',

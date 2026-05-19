@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 /**
  * Creates two Messages-only "developer" accounts for beta feedback.
@@ -38,7 +37,7 @@ class DeveloperAccountsSeeder extends Seeder
                 ['email' => $row['email']],
                 [
                     'name' => $row['name'],
-                    'password' => Hash::make($row['password']),
+                    'password' => $row['password'],
                     'employee_id' => $row['employee_id'],
                     'department' => 9,
                     'position' => 'System Developer',

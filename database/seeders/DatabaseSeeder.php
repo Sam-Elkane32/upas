@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Models\Campus;
 use App\Models\Department;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -141,7 +140,7 @@ class DatabaseSeeder extends Seeder
         User::create([
             'name' => 'UAPS Super Administrator',
             'email' => 'superadmin@psu.edu.ph',
-            'password' => Hash::make('UAPS@2025!'),
+            'password' => 'UAPS@2025!',
             'employee_id' => 'SUPER001',
             'department' => 1, // Office of the President
             'position' => 'Super Administrator',
@@ -183,7 +182,7 @@ class DatabaseSeeder extends Seeder
             User::create([
                 'name' => $admin['name'],
                 'email' => $admin['email'],
-                'password' => Hash::make('Admin@2025!'),
+                'password' => 'Admin@2025!',
                 'employee_id' => $admin['employee_id'],
                 'department' => 1, // Office of the President
                 'position' => 'Campus Administrator',
@@ -226,7 +225,7 @@ class DatabaseSeeder extends Seeder
             User::create([
                 'name' => $creator['name'],
                 'email' => $creator['email'],
-                'password' => Hash::make('Creator@2025!'),
+                'password' => 'Creator@2025!',
                 'employee_id' => $creator['employee_id'],
                 'department' => 8, // Planning and Development Office
                 'position' => 'Planning Officer',
@@ -244,7 +243,7 @@ class DatabaseSeeder extends Seeder
         User::create([
             'name' => 'Planning Coordinator Lingayen',
             'email' => 'planning.lingayen@psu.edu.ph',
-            'password' => Hash::make('Planning@2025!'),
+            'password' => 'Planning@2025!',
             'employee_id' => 'PC001',
             'department' => 8, // Planning and Development Office
             'position' => 'Planning Coordinator',
@@ -261,7 +260,7 @@ class DatabaseSeeder extends Seeder
         User::create([
             'name' => 'Test User',
             'email' => 'test@example.com',
-            'password' => Hash::make('password'),
+            'password' => 'password',
             'employee_id' => 'TEST001',
             'department' => 8, // Planning and Development Office
             'position' => 'Test User',
