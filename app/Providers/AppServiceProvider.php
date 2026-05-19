@@ -4,8 +4,9 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Observers\UserObserver;
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,6 +23,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (getenv('VERCEL') || config('app.env') === 'production') {
+            URL::forceScheme('https');
+        }
+
         // MySQL 5.6 / MariaDB with utf8mb4: index key length max 767 bytes
         if (config('database.default') === 'mysql') {
             Schema::defaultStringLength(191);

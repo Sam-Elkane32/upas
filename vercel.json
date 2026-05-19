@@ -13,6 +13,10 @@
       "dest": "/public/build/$1"
     },
     {
+      "src": "/images/(.*)",
+      "dest": "/public/images/$1"
+    },
+    {
       "src": "/(favicon\\.ico|robots\\.txt)",
       "dest": "/public/$1"
     },
@@ -26,6 +30,9 @@
     }
   ],
   "env": {
+    "APP_URL": "https://upas-bay.vercel.app",
+    "ASSET_URL": "https://upas-bay.vercel.app",
+    "SESSION_SECURE_COOKIE": "true",
     "APP_EVENTS_CACHE": "/tmp/events.php",
     "APP_PACKAGES_CACHE": "/tmp/packages.php",
     "APP_ROUTES_CACHE": "/tmp/routes-v7.php",
