@@ -1,4 +1,5 @@
 /node_modules
+/vendor
 /storage/*.key
 /storage/logs
 /storage/framework/cache

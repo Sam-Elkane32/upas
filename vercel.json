@@ -1,6 +1,5 @@
 {
-  "buildCommand": "npm ci && npm run build && php artisan package:discover --ansi",
-  "installCommand": "composer install --no-dev --optimize-autoloader --no-interaction",
+  "buildCommand": "npm ci && npm run build",
   "functions": {
     "api/index.php": {
       "runtime": "vercel-php@0.7.3"
