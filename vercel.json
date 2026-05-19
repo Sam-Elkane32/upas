@@ -36,6 +36,8 @@
     "CACHE_STORE": "array",
     "LOG_CHANNEL": "stderr",
     "LOG_LEVEL": "error",
-    "DB_SSLMODE": "require"
+    "DB_SSLMODE": "require",
+    "DB_CONNECT_TIMEOUT": "10",
+    "QUEUE_CONNECTION": "sync"
   }
 }

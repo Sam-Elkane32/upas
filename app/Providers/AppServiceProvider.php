@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Database\PostgresConnector;
 use App\Models\User;
 use App\Observers\UserObserver;
 use Illuminate\Support\Facades\Schema;
@@ -15,7 +16,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind('db.connector.pgsql', PostgresConnector::class);
     }
 
     /**
