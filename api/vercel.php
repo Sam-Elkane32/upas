@@ -26,7 +26,6 @@ foreach ($tmpDirs as $dir) {
 $cacheMap = [
     'packages.php' => getenv('APP_PACKAGES_CACHE') ?: '/tmp/packages.php',
     'services.php' => getenv('APP_SERVICES_CACHE') ?: '/tmp/services.php',
-    'config.php' => getenv('APP_CONFIG_CACHE') ?: '/tmp/config.php',
     'routes-v7.php' => getenv('APP_ROUTES_CACHE') ?: '/tmp/routes-v7.php',
     'events.php' => getenv('APP_EVENTS_CACHE') ?: '/tmp/events.php',
 ];
@@ -43,7 +42,6 @@ foreach ($cacheMap as $file => $dest) {
 }
 
 $vercelCacheEnv = [
-    'APP_CONFIG_CACHE' => '/tmp/config.php',
     'APP_EVENTS_CACHE' => '/tmp/events.php',
     'APP_PACKAGES_CACHE' => '/tmp/packages.php',
     'APP_ROUTES_CACHE' => '/tmp/routes-v7.php',

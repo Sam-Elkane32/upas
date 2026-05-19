@@ -60,7 +60,6 @@
             "@php artisan test"
         ],
         "vercel": [
-            "@php artisan config:cache --ansi",
             "@php artisan route:cache --ansi",
             "@php artisan view:cache --ansi"
         ]
