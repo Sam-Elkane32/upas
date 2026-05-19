@@ -2,7 +2,9 @@
   "buildCommand": "npm ci && npm run build",
   "functions": {
     "api/index.php": {
-      "runtime": "vercel-php@0.7.3"
+      "runtime": "vercel-php@0.7.3",
+      "maxDuration": 60,
+      "memory": 1024
     }
   },
   "routes": [
@@ -33,6 +35,7 @@
     "LARAVEL_STORAGE_PATH": "/tmp/storage",
     "CACHE_STORE": "array",
     "LOG_CHANNEL": "stderr",
-    "LOG_LEVEL": "error"
+    "LOG_LEVEL": "error",
+    "DB_SSLMODE": "require"
   }
 }
