@@ -54,9 +54,15 @@
                     </ul>
                 </div>
             @endif
+            @if(session('error'))
+                <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    {{ session('error') }}
+                </div>
+            @endif
 
             <form action="{{ route('super-admin.templates.store') }}" method="POST" id="create-template-form" onsubmit="return validateFormWithIntent()">
                 @csrf
+                <div id="campus-codes-hidden" class="hidden" aria-hidden="true"></div>
                 <input type="hidden" id="imitate_intent" name="imitate_intent" value="create">
                 @if($form)
                     <input type="hidden" name="form_id" value="{{ $form->id }}">
@@ -509,6 +515,18 @@
                             if (selectedCampuses.length === 0) tbody.insertAdjacentHTML('beforeend', '<tr id="campus-targets-empty-row"><td colspan="6" class="px-3 py-4 text-center text-xs text-gray-500">No Planning Coordinator selected. Select one or more above—only their campuses will appear here.</td></tr>');
                             tbody.querySelectorAll('tr.campus-target-row').forEach(function(row) { updateRowTotal(row); });
                             recalcCampusTargetSums();
+                            var hiddenWrap = document.getElementById('campus-codes-hidden');
+                            if (hiddenWrap) {
+                                hiddenWrap.innerHTML = '';
+                                selectedCampuses.forEach(function(c) {
+                                    if (!c.code) return;
+                                    var inp = document.createElement('input');
+                                    inp.type = 'hidden';
+                                    inp.name = 'campus_codes[]';
+                                    inp.value = c.code;
+                                    hiddenWrap.appendChild(inp);
+                                });
+                            }
                         }
                         jQuery(selectEl).on('change', rebuildCampusTargetTable);
                         setTimeout(function() { rebuildCampusTargetTable(); }, 150);
@@ -596,7 +614,8 @@
                             Imitate Template
                         </button>
                         <button type="submit"
-                                class="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
+                                class="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                                onclick="document.getElementById('imitate_intent').value='create';">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
@@ -1222,8 +1241,38 @@
                 });
             }
 
+            // Disabled controls and Select2 do not submit; sync before POST.
+            window.prepareCreateTemplateFormForSubmit = function() {
+                var kpiEl = document.getElementById('kpi_title');
+                if (kpiEl) {
+                    kpiEl.disabled = false;
+                    if (typeof jQuery !== 'undefined' && jQuery.fn.select2 && jQuery(kpiEl).hasClass('select2-hidden-accessible')) {
+                        var val = jQuery(kpiEl).val();
+                        if (val) {
+                            kpiEl.value = val;
+                        }
+                    }
+                }
+                var hiddenWrap = document.getElementById('campus-codes-hidden');
+                if (hiddenWrap && !hiddenWrap.querySelector('input[name="campus_codes[]"]')) {
+                    var selectEl = document.getElementById('assigned_user_ids');
+                    if (selectEl) {
+                        jQuery(selectEl).find('option:selected').each(function() {
+                            var code = jQuery(this).attr('data-campus-code') || '';
+                            if (!code) return;
+                            var inp = document.createElement('input');
+                            inp.type = 'hidden';
+                            inp.name = 'campus_codes[]';
+                            inp.value = code;
+                            hiddenWrap.appendChild(inp);
+                        });
+                    }
+                }
+            };
+
             // Form validation before submit
             window.validateForm = function() {
+                prepareCreateTemplateFormForSubmit();
                 updateFieldsJson();
                 const fieldsJsonInput = document.getElementById('fields_json');
                 const fieldsData = JSON.parse(fieldsJsonInput.value || '{"fields":[]}');
@@ -1285,10 +1334,22 @@
             window.validateFormWithIntent = function() {
                 const intentEl = document.getElementById('imitate_intent');
                 const intent = intentEl ? String(intentEl.value || 'create') : 'create';
+                if (typeof window.prepareCreateTemplateFormForSubmit === 'function') {
+                    window.prepareCreateTemplateFormForSubmit();
+                }
                 if (intent === 'imitate') return true;
                 if (typeof window.validateForm === 'function') return window.validateForm();
                 return true;
             };
+
+            @if($errors->any() || session('error'))
+            document.addEventListener('DOMContentLoaded', function() {
+                var msgs = @json(array_values(array_filter(array_merge($errors->all(), session('error') ? [session('error')] : []))));
+                if (msgs.length && typeof window.showAlert === 'function') {
+                    window.showAlert({ title: 'Notice', message: msgs.join('\n') });
+                }
+            });
+            @endif
 
             document.addEventListener('change', function(e) {
                 if (e.target.name && e.target.name.includes('field_')) {
@@ -1387,6 +1448,8 @@
             const kraTitleSelect = document.getElementById('kra_title');
             const kpiTitleSelect = document.getElementById('kpi_title');
             const kpiCountSpan = document.getElementById('kpi-count');
+            const currentKpiTitle = @json(old('kpi_title', ''));
+            const currentKraTitle = @json(old('kra_title', ''));
             
             console.log('Elements found:', {
                 kraTitleSelect: !!kraTitleSelect,
@@ -1476,6 +1539,9 @@
                                 const option = document.createElement('option');
                                 option.value = kpiFull;
                                 option.textContent = kpiFull;
+                                if (currentKpiTitle && kpiFull === currentKpiTitle) {
+                                    option.selected = true;
+                                }
                                 // Store level info as data attribute for reference
                                 if (kpi.level) {
                                     option.setAttribute('data-level', Array.isArray(kpi.level) ? kpi.level.join(',') : kpi.level);
@@ -1503,6 +1569,14 @@
                         kpiTitleSelect.appendChild(noKpiOption);
                     }
                     
+                    if (currentKpiTitle && !kpiTitleSelect.value) {
+                        const restoreOpt = document.createElement('option');
+                        restoreOpt.value = currentKpiTitle;
+                        restoreOpt.textContent = currentKpiTitle;
+                        restoreOpt.selected = true;
+                        kpiTitleSelect.appendChild(restoreOpt);
+                    }
+
                     kpiTitleSelect.disabled = false;
                     initKpiSelect2();
                 }
@@ -1525,6 +1599,9 @@
                 
                 // Initial load - ensure we filter on page load
                 console.log('Setting up initial load...');
+                if (!kraTitleSelect.value && currentKraTitle) {
+                    kraTitleSelect.value = currentKraTitle;
+                }
                 if (kraTitleSelect.value) {
                     console.log('KRA already selected on load:', kraTitleSelect.value);
                     // Clear first, then populate
@@ -1542,29 +1619,42 @@
                 const form = document.getElementById('create-template-form');
                 if (form) {
                     form.addEventListener('submit', function(e) {
-                        const selectedKraTitle = kraTitleSelect.value ? kraTitleSelect.value.trim() : '';
-                        const selectedKpi = kpiTitleSelect.value;
-                        
-                        if (selectedKraTitle && selectedKpi) {
-                            const selectedKra = kraKpiData.find(kra => {
-                                const kraTitle = (kra.kra_title || '').trim();
+                        try {
+                            if (typeof window.prepareCreateTemplateFormForSubmit === 'function') {
+                                window.prepareCreateTemplateFormForSubmit();
+                            }
+                            const norm = (s) => (s || '').toString().replace(/\s+/g, ' ').trim();
+                            const selectedKraTitle = kraTitleSelect.value ? kraTitleSelect.value.trim() : '';
+                            const selectedKpi = (kpiTitleSelect.value || '').trim();
+
+                            if (!selectedKraTitle || !selectedKpi) return;
+
+                            const selectedKra = (kraKpiData || []).find(kra => {
+                                const kraTitle = (kra?.kra_title || '').trim();
                                 return kraTitle === selectedKraTitle;
                             });
-                            
-                            const availableKpis = selectedKra?.kpis || [];
+
+                            const availableKpis = Array.isArray(selectedKra?.kpis) ? selectedKra.kpis : [];
                             const kpiExists = availableKpis.some(kpi => {
-                                const kpiNumber = kpi.number || '';
-                                const kpiTitle = kpi.title || '';
+                                const kpiNumber = (kpi?.number || '').toString().trim();
+                                const kpiTitle = (kpi?.title || '').toString().trim();
                                 const kpiFull = kpiNumber ? `${kpiNumber} - ${kpiTitle}` : kpiTitle;
-                                return kpiFull === selectedKpi;
+                                return norm(kpiFull) === norm(selectedKpi);
                             });
-                            
-                            if (!kpiExists) {
-                                e.preventDefault();
-                                window.showAlert({ title: 'Notice', message: 'Selected KPI does not belong to the selected KRA. Please select a KPI that matches the selected KRA.' });
-                                kpiTitleSelect.focus();
-                                return false;
+
+                            if (kpiExists) return;
+
+                            e.preventDefault();
+                            const msg = 'Selected KPI does not belong to the selected KRA. Please select a KPI that matches the selected KRA.';
+                            if (window.showAlert) {
+                                window.showAlert({ title: 'Notice', message: msg });
+                            } else {
+                                alert(msg);
                             }
+                            kpiTitleSelect.focus();
+                            return false;
+                        } catch (err) {
+                            console.error('Create Template KRA/KPI submit validation error:', err);
                         }
                     });
                 }

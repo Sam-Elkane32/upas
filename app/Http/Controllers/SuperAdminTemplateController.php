@@ -471,13 +471,7 @@ class SuperAdminTemplateController extends Controller
             return $fieldsRedirect;
         }
 
-        $campusCodesNormalized = $this->normalizeTemplateCampusCodesFromRequest($request);
-        $dupRedirect = $this->checkStoreDuplicateAndForm($formId, $finalTemplateCode, $campusCodesNormalized);
-        if ($dupRedirect !== null) {
-            return $dupRedirect;
-        }
-
-        // Accept both multi-assign and legacy single input names
+        // Accept both multi-assign and legacy single input names (before duplicate check — campus scope)
         $assignedUserIds = $request->input('assigned_user_ids', []);
         if (!is_array($assignedUserIds)) {
             $assignedUserIds = $assignedUserIds ? [$assignedUserIds] : [];
@@ -495,6 +489,27 @@ class SuperAdminTemplateController extends Controller
             }
         }
         $assignedUserId = $assignedUserIds[0] ?? null;
+
+        $campusCodesNormalized = $this->normalizeTemplateCampusCodesFromRequest($request);
+        if ($campusCodesNormalized === null && !empty($assignedUserIds)) {
+            $campusCodesNormalized = \App\Models\User::query()
+                ->whereIn('id', $assignedUserIds)
+                ->whereNotNull('campus_code')
+                ->pluck('campus_code')
+                ->map(fn ($c) => strtoupper(trim((string) $c)))
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+            if (empty($campusCodesNormalized)) {
+                $campusCodesNormalized = null;
+            }
+        }
+        $dupRedirect = $this->checkStoreDuplicateAndForm($formId, $finalTemplateCode, $campusCodesNormalized);
+        if ($dupRedirect !== null) {
+            return $dupRedirect;
+        }
 
         // Campus targets: if the input is present, treat it as source of truth (allows clearing)
         $hasCampusTargets = $request->has('campus_targets');
@@ -2791,7 +2806,7 @@ class SuperAdminTemplateController extends Controller
             'form_id' => 'nullable|exists:forms,id',
             'sg_code' => 'required|string|in:SG1,SG2,SG3,SG4,SG5',
             'template_code' => 'required|string|max:255',
-            'kra_title' => 'required|string|max:255',
+            'kra_title' => 'required|string|max:20000',
             'kpi_title' => 'required|string|max:20000|min:1',
             'fields_json' => 'required|string',
             'campus_code' => 'nullable|string',
@@ -2806,6 +2821,7 @@ class SuperAdminTemplateController extends Controller
             'fields_json.required' => 'Field structure is required. Please add at least one field.',
             'kpi_title.required' => 'KPI Title is required. Please select exactly one KPI.',
             'kpi_title.min' => 'Please select exactly one KPI title.',
+            'kra_title.max' => 'The KRA title is too long.',
         ];
         try {
             $request->validate($rules, $messages);
