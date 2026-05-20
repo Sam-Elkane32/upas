@@ -105,7 +105,7 @@ class FormController extends Controller
             ->select([
                 'id', 'form_id', 'sg_code', 'template_code', 'kra_title', 'kpi_title',
                 'status', 'campus_code', 'created_by', 'assigned_user_id',
-                'campus_codes', 'is_locked', 'locked_at', 'locked_by', 'lock_reason',
+                'is_locked', 'locked_at', 'locked_by', 'lock_reason',
                 'created_at', 'updated_at',
             ])
             ->with('campus')
