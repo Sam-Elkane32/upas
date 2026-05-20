@@ -1970,25 +1970,36 @@ class SuperAdminTemplateController extends Controller
                     }
                     $campusName = optional($user->campusInfo)->name ?? $user->campus ?? $user->campus_code ?? 'All Campuses';
                     $campusName = is_array($campusName) ? json_encode($campusName) : (string) $campusName;
-                    $formTitle = ($template->sg_code ?? '') . ' - ' . $template->template_code;
-                    $firstRowForQuarter = $orderedRows[0] ?? [];
-                    $quarter = $firstRowForQuarter['quarter'] ?? $firstRowForQuarter['Quarter'] ?? '1';
-                    $quarter = is_array($quarter) ? (string) reset($quarter) : (string) $quarter;
-                    Submission::create([
-                        'template_id' => $templateId,
-                        'form_id' => $template->form_id,
-                        'template_code' => $template->template_code,
-                        'form_title' => $formTitle,
-                        'sg_code' => $template->sg_code,
-                        'kra_title' => $template->kra_title,
-                        'kpi_title' => $template->kpi_title,
-                        'campus' => $campusName,
-                        'quarter' => $quarter,
-                        'table_data' => $finalTableData,
-                        'status' => 'Unpublished',
-                        'submitted_by' => $userId,
-                        'is_draft' => true,
-                    ]);
+                    // Field Structure autosave can POST without submission_id — update existing draft instead of creating duplicates.
+                    $existingDraft = Submission::query()
+                        ->where('template_id', $templateId)
+                        ->where('submitted_by', $userId)
+                        ->where('is_draft', true)
+                        ->orderByDesc('id')
+                        ->first();
+                    if ($existingDraft) {
+                        $existingDraft->update(['table_data' => $finalTableData]);
+                    } else {
+                        $formTitle = ($template->sg_code ?? '') . ' - ' . $template->template_code;
+                        $firstRowForQuarter = $orderedRows[0] ?? [];
+                        $quarter = $firstRowForQuarter['quarter'] ?? $firstRowForQuarter['Quarter'] ?? '1';
+                        $quarter = is_array($quarter) ? (string) reset($quarter) : (string) $quarter;
+                        Submission::create([
+                            'template_id' => $templateId,
+                            'form_id' => $template->form_id,
+                            'template_code' => $template->template_code,
+                            'form_title' => $formTitle,
+                            'sg_code' => $template->sg_code,
+                            'kra_title' => $template->kra_title,
+                            'kpi_title' => $template->kpi_title,
+                            'campus' => $campusName,
+                            'quarter' => $quarter,
+                            'table_data' => $finalTableData,
+                            'status' => 'Unpublished',
+                            'submitted_by' => $userId,
+                            'is_draft' => true,
+                        ]);
+                    }
                 }
             }
             // Save grand total rows to template fields_json (always update when key present, including empty to clear)

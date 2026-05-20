@@ -152,8 +152,21 @@ class FormController extends Controller
         $accomplishmentMode = $this->resolveAccomplishmentMode($form);
         $out = [];
         $kpiTemplateOrdinal = 0;
-        // Never bulk-load every submission for the form (OOM on large forms). Fetch slim rows per id on demand.
+        // Preload slim submission rows + approvals in one query (autosave can create many drafts per form).
         $submissionCache = [];
+        $lightIds = $submissionLightRows->pluck('id')->map(fn ($id) => (int) $id)->filter()->unique()->values()->all();
+        if ($lightIds !== []) {
+            foreach (Submission::query()
+                ->select(['id', 'campus', 'submitted_by'])
+                ->with([
+                    'approval:submission_id,accomp_q1,accomp_q2,accomp_q3,accomp_q4,accomp_total',
+                    'submitter:id,campus_code',
+                ])
+                ->whereIn('id', $lightIds)
+                ->get() as $sub) {
+                $submissionCache[(int) $sub->id] = $sub;
+            }
+        }
         $tableDataCache = [];
         $getSubmission = function ($id) use (&$submissionCache) {
             $id = (int) $id;
@@ -204,93 +217,6 @@ class FormController extends Controller
                 $accompQ4 = 0.0;
                 $accompTotal = 0.0;
 
-                $matchedIds = $this->findSubmissionIdsForKpi($submissionMatchIndex, $kraData['kra_title'] ?? '', $kpi);
-                $campusBreakdown = [];
-                if ($accomplishmentMode === 'overall') {
-                    // Finalize stores Q1–Q4 that are already the mixed / university roll-up (51,7,5,6). Each campus
-                    // submission may carry a copy of that same row — summing N submissions multiplies by N (×9).
-                    // If any match has finalized_accomp, use one canonical submission only, not a sum.
-                    $canonicalId = null;
-                    foreach ($matchedIds as $mid) {
-                        $probe = $getSubmission($mid);
-                        if ($probe) {
-                            $ensureSubmissionTableData($probe);
-                        }
-                        if ($probe && $this->submissionTableDataHasFinalizedAccomp($probe)) {
-                            $canonicalId = $mid;
-                            unset($probe);
-                            break;
-                        }
-                        unset($probe);
-                    }
-                    $useTemplateFinalizeRollup = $canonicalId !== null;
-
-                    foreach ($matchedIds as $mid) {
-                        $sub = $getSubmission($mid);
-                        if (! $sub) {
-                            continue;
-                        }
-                        if (! $sub->approval) {
-                            $ensureSubmissionTableData($sub);
-                        }
-                        [$q1, $q2, $q3, $q4, $total] = $this->extractAccomplishmentFromSubmission($sub, $rollup);
-                        if (! $useTemplateFinalizeRollup) {
-                            $accompQ1 += $q1;
-                            $accompQ2 += $q2;
-                            $accompQ3 += $q3;
-                            $accompQ4 += $q4;
-                            $accompTotal += $total;
-                        }
-                        $campusKey = trim((string) ($sub->campus ?: ($sub->submitter?->campus_code ?? 'UNKNOWN')));
-                        if ($campusKey === '') {
-                            $campusKey = 'UNKNOWN';
-                        }
-                        if (! isset($campusBreakdown[$campusKey])) {
-                            $campusBreakdown[$campusKey] = [
-                                'accomp_q1' => 0.0,
-                                'accomp_q2' => 0.0,
-                                'accomp_q3' => 0.0,
-                                'accomp_q4' => 0.0,
-                                'accomp_total' => 0.0,
-                            ];
-                        }
-                        $campusBreakdown[$campusKey]['accomp_q1'] += $q1;
-                        $campusBreakdown[$campusKey]['accomp_q2'] += $q2;
-                        $campusBreakdown[$campusKey]['accomp_q3'] += $q3;
-                        $campusBreakdown[$campusKey]['accomp_q4'] += $q4;
-                        $campusBreakdown[$campusKey]['accomp_total'] += $total;
-                        unset($sub);
-                    }
-
-                    if ($useTemplateFinalizeRollup && $canonicalId !== null) {
-                        $canonicalSub = $getSubmission($canonicalId);
-                        if ($canonicalSub) {
-                            $ensureSubmissionTableData($canonicalSub);
-                            [$accompQ1, $accompQ2, $accompQ3, $accompQ4, $accompTotal] = $this->extractAccomplishmentFromSubmission(
-                                $canonicalSub,
-                                $rollup
-                            );
-                        }
-                        unset($canonicalSub);
-                    }
-                } else {
-                    $sub = null;
-                    if ($matchedIds !== []) {
-                        $sub = $getSubmission($matchedIds[0]);
-                    }
-                    if ($sub) {
-                        if (! $sub->approval) {
-                            $ensureSubmissionTableData($sub);
-                        }
-                        [$accompQ1, $accompQ2, $accompQ3, $accompQ4, $accompTotal] = $this->extractAccomplishmentFromSubmission($sub, $rollup);
-                    }
-                    unset($sub);
-                }
-
-                // Template.fields_json.finalized_accomp (Super Admin Finalize + save) is the roll-up the UI shows
-                // on the template (e.g. 51, 7, 5, 6). Prefer it whenever it has non-zero data so Form Details
-                // does not stay on stale submission rollups or heuristic column picks when submissions also carry
-                // empty/partial _meta.finalized_accomp (which skips the old "fallback only if zeros" path).
                 $preferredTemplateCode = 'T'.($kpiTemplateOrdinal + 1);
                 $fromTpl = $this->findFinalizedAccompFromIndex(
                     $tplFaIndex,
@@ -298,6 +224,7 @@ class FormController extends Controller
                     $kpi,
                     $preferredTemplateCode
                 );
+                $useTemplateFieldsJsonFinalize = false;
                 if ($fromTpl !== null) {
                     $tplQuarterSum = abs($fromTpl['q1']) + abs($fromTpl['q2']) + abs($fromTpl['q3']) + abs($fromTpl['q4']);
                     if ($tplQuarterSum > 1e-9 || abs($fromTpl['total']) > 1e-9) {
@@ -306,6 +233,85 @@ class FormController extends Controller
                         $accompQ3 = $fromTpl['q3'];
                         $accompQ4 = $fromTpl['q4'];
                         $accompTotal = $fromTpl['total'];
+                        $useTemplateFieldsJsonFinalize = true;
+                    }
+                }
+
+                $matchedIds = $this->findSubmissionIdsForKpi($submissionMatchIndex, $kraData['kra_title'] ?? '', $kpi);
+                $matchedIds = $this->dedupeSubmissionIdsToLatestPerCoordinator($matchedIds);
+                $campusBreakdown = [];
+
+                // Template.fields_json.finalized_accomp is authoritative — skip scanning every submission row.
+                if (! $useTemplateFieldsJsonFinalize) {
+                    if ($accomplishmentMode === 'overall') {
+                        // Finalize stores Q1–Q4 that are already the mixed / university roll-up (51,7,5,6). Each campus
+                        // submission may carry a copy of that same row — summing N submissions multiplies by N (×9).
+                        // If any match has finalized_accomp, use one canonical submission only, not a sum.
+                        $canonicalId = $this->findCanonicalFinalizedSubmissionId($matchedIds);
+                        $useTemplateFinalizeRollup = $canonicalId !== null;
+
+                        foreach ($matchedIds as $mid) {
+                            $sub = $getSubmission($mid);
+                            if (! $sub) {
+                                continue;
+                            }
+                            if (! $sub->approval) {
+                                $ensureSubmissionTableData($sub);
+                            }
+                            [$q1, $q2, $q3, $q4, $total] = $this->extractAccomplishmentFromSubmission($sub, $rollup);
+                            if (! $useTemplateFinalizeRollup) {
+                                $accompQ1 += $q1;
+                                $accompQ2 += $q2;
+                                $accompQ3 += $q3;
+                                $accompQ4 += $q4;
+                                $accompTotal += $total;
+                            }
+                            $campusKey = trim((string) ($sub->campus ?: ($sub->submitter?->campus_code ?? 'UNKNOWN')));
+                            if ($campusKey === '') {
+                                $campusKey = 'UNKNOWN';
+                            }
+                            if (! isset($campusBreakdown[$campusKey])) {
+                                $campusBreakdown[$campusKey] = [
+                                    'accomp_q1' => 0.0,
+                                    'accomp_q2' => 0.0,
+                                    'accomp_q3' => 0.0,
+                                    'accomp_q4' => 0.0,
+                                    'accomp_total' => 0.0,
+                                ];
+                            }
+                            $campusBreakdown[$campusKey]['accomp_q1'] += $q1;
+                            $campusBreakdown[$campusKey]['accomp_q2'] += $q2;
+                            $campusBreakdown[$campusKey]['accomp_q3'] += $q3;
+                            $campusBreakdown[$campusKey]['accomp_q4'] += $q4;
+                            $campusBreakdown[$campusKey]['accomp_total'] += $total;
+                            unset($sub);
+                        }
+
+                        if ($useTemplateFinalizeRollup && $canonicalId !== null) {
+                            $canonicalSub = $getSubmission($canonicalId);
+                            if ($canonicalSub) {
+                                if (! $canonicalSub->approval) {
+                                    $ensureSubmissionTableData($canonicalSub);
+                                }
+                                [$accompQ1, $accompQ2, $accompQ3, $accompQ4, $accompTotal] = $this->extractAccomplishmentFromSubmission(
+                                    $canonicalSub,
+                                    $rollup
+                                );
+                            }
+                            unset($canonicalSub);
+                        }
+                    } else {
+                        $sub = null;
+                        if ($matchedIds !== []) {
+                            $sub = $getSubmission($matchedIds[0]);
+                        }
+                        if ($sub) {
+                            if (! $sub->approval) {
+                                $ensureSubmissionTableData($sub);
+                            }
+                            [$accompQ1, $accompQ2, $accompQ3, $accompQ4, $accompTotal] = $this->extractAccomplishmentFromSubmission($sub, $rollup);
+                        }
+                        unset($sub);
                     }
                 }
 
@@ -435,12 +441,88 @@ class FormController extends Controller
     }
 
     /**
+     * Field Structure autosave can create many draft rows per coordinator; keep only the newest per user/campus.
+     *
+     * @param  list<int|string>  $matchedIds
+     * @return list<int>
+     */
+    protected function dedupeSubmissionIdsToLatestPerCoordinator(array $matchedIds): array
+    {
+        $ids = array_values(array_filter(array_map('intval', $matchedIds)));
+        if (count($ids) <= 1) {
+            return $ids;
+        }
+
+        $rows = DB::table('submissions')
+            ->whereIn('id', $ids)
+            ->orderByDesc('updated_at')
+            ->get(['id', 'submitted_by', 'campus']);
+
+        $seen = [];
+        $out = [];
+        foreach ($rows as $row) {
+            $key = (int) ($row->submitted_by ?? 0).'|'.strtolower(trim((string) ($row->campus ?? '')));
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $out[] = (int) $row->id;
+        }
+
+        return $out;
+    }
+
+    /**
+     * First submission id (among matches) whose table_data contains finalized_accomp, without loading every blob.
+     *
+     * @param  list<int|string>  $matchedIds
+     */
+    protected function findCanonicalFinalizedSubmissionId(array $matchedIds): ?int
+    {
+        $ids = array_values(array_filter(array_map('intval', $matchedIds)));
+        if ($ids === []) {
+            return null;
+        }
+
+        $driver = DB::connection()->getDriverName();
+        $query = DB::table('submissions')->whereIn('id', $ids);
+        if ($driver === 'pgsql') {
+            $id = $query
+                ->whereRaw("table_data::text ilike '%\"finalized_accomp\"%'")
+                ->orderByDesc('updated_at')
+                ->value('id');
+
+            return $id !== null ? (int) $id : null;
+        }
+
+        foreach ($ids as $id) {
+            $raw = DB::table('submissions')->where('id', $id)->value('table_data');
+            if (is_string($raw) && str_contains($raw, 'finalized_accomp')) {
+                return $id;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Extract accomplishment quarterly + total from one submission.
      */
     protected function extractAccomplishmentFromSubmission(Submission $sub, RollupService $rollup): array
     {
+        // Use approval when present and non-zero — avoids loading large table_data JSON on every draft row.
+        if ($sub->approval) {
+            $q1 = (float) $sub->approval->accomp_q1;
+            $q2 = (float) $sub->approval->accomp_q2;
+            $q3 = (float) $sub->approval->accomp_q3;
+            $q4 = (float) $sub->approval->accomp_q4;
+            $total = (float) $sub->approval->accomp_total;
+            if (abs($q1) + abs($q2) + abs($q3) + abs($q4) + abs($total) > 1e-9) {
+                return [$q1, $q2, $q3, $q4, $total];
+            }
+        }
+
         // Template Finalize stores _meta.finalized_accomp on the summary row; rollup reads it.
-        // Prefer that over stale approval rows that still have zeros after Super Admin Finalize.
         if ($this->submissionTableDataHasFinalizedAccomp($sub)) {
             $extracted = $rollup->extractFromSubmission($sub);
             $q1 = (float) ($extracted['accomp_q1'] ?? 0);
@@ -457,6 +539,7 @@ class FormController extends Controller
             $q3 = (float) $sub->approval->accomp_q3;
             $q4 = (float) $sub->approval->accomp_q4;
             $total = (float) $sub->approval->accomp_total;
+
             return [$q1, $q2, $q3, $q4, $total];
         }
         $extracted = $rollup->extractFromSubmission($sub);
@@ -551,19 +634,38 @@ class FormController extends Controller
     protected function buildTemplateFinalizedAccompIndex(int $formId): array
     {
         $out = [];
-        foreach (DB::table('templates')
+        $query = DB::table('templates')
             ->where('form_id', $formId)
             ->orderBy('template_code')
-            ->select(['template_code', 'kra_title', 'kpi_title', 'fields_json'])
-            ->cursor() as $row) {
+            ->select(['template_code', 'kra_title', 'kpi_title']);
+
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            $query->selectRaw("(fields_json::jsonb -> 'finalized_accomp') as finalized_json");
+        } else {
+            $query->addSelect('fields_json');
+        }
+
+        foreach ($query->cursor() as $row) {
             $finalized = null;
-            $raw = $row->fields_json ?? null;
-            if (is_string($raw) && $raw !== '') {
-                $fj = json_decode($raw, true);
-                if (is_array($fj) && isset($fj['finalized_accomp']) && is_array($fj['finalized_accomp'])) {
-                    $finalized = $this->normalizeFinalizedAccompArray($fj['finalized_accomp']);
+            if (DB::connection()->getDriverName() === 'pgsql') {
+                $faRaw = $row->finalized_json ?? null;
+                if (is_string($faRaw) && $faRaw !== '') {
+                    $fa = json_decode($faRaw, true);
+                    if (is_array($fa)) {
+                        $finalized = $this->normalizeFinalizedAccompArray($fa);
+                    }
+                } elseif (is_array($faRaw)) {
+                    $finalized = $this->normalizeFinalizedAccompArray($faRaw);
                 }
-                unset($fj);
+            } else {
+                $raw = $row->fields_json ?? null;
+                if (is_string($raw) && $raw !== '') {
+                    $fj = json_decode($raw, true);
+                    if (is_array($fj) && isset($fj['finalized_accomp']) && is_array($fj['finalized_accomp'])) {
+                        $finalized = $this->normalizeFinalizedAccompArray($fj['finalized_accomp']);
+                    }
+                    unset($fj);
+                }
             }
             $out[] = (object) [
                 'template_code' => (string) ($row->template_code ?? ''),
