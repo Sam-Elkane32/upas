@@ -15,6 +15,8 @@ use App\Services\TableDataAuditHelper;
 use App\Notifications\DeadlineReminderNotification;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class SuperAdminTemplateController extends Controller
@@ -3319,6 +3321,14 @@ class SuperAdminTemplateController extends Controller
      */
     private function logTemplateEdit(Template $template, string $whatEdited): void
     {
+        if (! Schema::hasTable('template_edit_history')) {
+            Log::warning('template_edit_history table missing; skipping audit log', [
+                'template_id' => $template->id,
+            ]);
+
+            return;
+        }
+
         $text = $whatEdited;
         TemplateEditHistory::create([
             'template_id' => $template->id,
