@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Allow 'Unpublished' in forms.status (app uses Unpublished/Published, column was Draft/Published).
+     * App uses Unpublished/Published; legacy PostgreSQL check allowed Draft/Published only.
      */
     public function up(): void
     {
@@ -15,7 +15,7 @@ return new class extends Migration
             return;
         }
 
-        $driver = DB::connection()->getDriverName();
+        $driver = Schema::getConnection()->getDriverName();
 
         if ($driver === 'pgsql') {
             DB::statement('ALTER TABLE forms DROP CONSTRAINT IF EXISTS forms_status_check');
@@ -34,14 +34,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (!Schema::hasTable('forms') || !Schema::hasColumn('forms', 'status')) {
-            return;
-        }
-
-        if (DB::connection()->getDriverName() !== 'mysql') {
-            return;
-        }
-
-        DB::statement("ALTER TABLE forms MODIFY COLUMN status ENUM('Draft', 'Published') NOT NULL DEFAULT 'Draft'");
+        // Non-destructive for production data.
     }
 };
