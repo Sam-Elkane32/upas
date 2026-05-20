@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -21,9 +21,22 @@ return new class extends Migration
             return;
         }
 
-        Schema::table('forms', function (Blueprint $table) {
-            $table->dropForeign(['campus_code']);
-        });
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'pgsql') {
+            DB::statement('ALTER TABLE forms DROP CONSTRAINT IF EXISTS forms_campus_code_foreign');
+            DB::statement('ALTER TABLE forms ALTER COLUMN campus_code DROP NOT NULL');
+
+            return;
+        }
+
+        try {
+            Schema::table('forms', function (Blueprint $table) {
+                $table->dropForeign(['campus_code']);
+            });
+        } catch (\Throwable) {
+            // FK may already be dropped.
+        }
 
         DB::statement('ALTER TABLE forms MODIFY COLUMN campus_code VARCHAR(50) NULL');
     }
@@ -35,6 +48,14 @@ return new class extends Migration
         }
 
         if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            return;
+        }
+
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'pgsql') {
+            DB::statement('ALTER TABLE forms ALTER COLUMN campus_code SET NOT NULL');
+
             return;
         }
 
