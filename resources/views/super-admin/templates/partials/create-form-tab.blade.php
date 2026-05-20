@@ -1,5 +1,16 @@
 <form action="{{ route('super-admin.templates.store-form') }}" method="POST" id="create-form-form">
     @csrf
+
+    @if ($errors->any())
+        <div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-4" role="alert">
+            <p class="text-sm font-semibold text-red-800">Please fix the following before creating the form:</p>
+            <ul class="mt-2 list-disc list-inside text-sm text-red-700 space-y-1">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
     
     <!-- Division Selection -->
     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
@@ -233,6 +244,12 @@
                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
             @enderror
             @error('kpi_titles')
+                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+            @enderror
+            @error('kpi_levels')
+                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+            @enderror
+            @error('kpi_numbers')
                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
             @enderror
         </div>

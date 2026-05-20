@@ -15,6 +15,7 @@ use App\Services\TableDataAuditHelper;
 use App\Notifications\DeadlineReminderNotification;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class SuperAdminTemplateController extends Controller
 {
@@ -80,8 +81,13 @@ class SuperAdminTemplateController extends Controller
      */
     public function index(Request $request)
     {
-        // Get active tab (default to 'forms')
-        $activeTab = $request->get('tab', 'forms');
+        // Get active tab (default to 'forms'; stay on create after failed form submission)
+        $activeTab = $request->get('tab');
+        if ($activeTab === null) {
+            $activeTab = ($request->session()->has('errors') && $request->old('division'))
+                ? 'create'
+                : 'forms';
+        }
 
         // Templates Query (load form so list can show which form each template belongs to)
         $templatesQuery = Template::with(['creator', 'assignedUser', 'assignedUsers', 'form']);
@@ -2971,7 +2977,7 @@ class SuperAdminTemplateController extends Controller
      */
     public function storeForm(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'division' => 'required|string|in:OP,OVPAFM,OVPASS,OVPREI,OVPQA,OVPLIA',
             'campus_code' => 'nullable|string|exists:campuses,code',
             'sg_code' => 'required|string|in:SG1,SG2,SG3,SG4,SG5',
@@ -2989,6 +2995,12 @@ class SuperAdminTemplateController extends Controller
             'template_code' => 'nullable|string|max:255',
         ]);
 
+        if ($validator->fails()) {
+            return $this->redirectToCreateFormTab()
+                ->withErrors($validator)
+                ->withInput();
+        }
+
         // Derive form_title from division selection
         $divisionTitles = [
             'OP' => 'Office of the President (OP)',
@@ -3004,33 +3016,21 @@ class SuperAdminTemplateController extends Controller
         $kpiNumbers = $request->kpi_numbers;
         foreach ($kpiNumbers as $kraIndex => $kraKpiNumbers) {
             if (count($kraKpiNumbers) !== count(array_unique($kraKpiNumbers))) {
-                return redirect()->back()
+                return $this->redirectToCreateFormTab()
                     ->withErrors(['kpi_numbers' => "KPI numbers must be unique within each KRA. Duplicate found in KRA #" . ($kraIndex + 1)])
                     ->withInput();
             }
         }
         
-        // Validate CL/UL levels for each KPI
+        // Validate CL/UL levels for each KPI (supports CL, UL, and combined CL_UL)
         $kpiLevels = $request->kpi_levels ?? [];
         foreach ($kpiNumbers as $kraIndex => $kraKpiNumbers) {
             foreach ($kraKpiNumbers as $kpiIndex => $kpiNumber) {
-                $levels = $kpiLevels[$kraIndex][$kpiIndex] ?? [];
-                if (!is_array($levels)) {
-                    $levels = $levels ? [$levels] : [];
-                }
+                $levels = $this->normalizeKpiLevelsFromRequest($kpiLevels[$kraIndex][$kpiIndex] ?? null);
                 if (empty($levels)) {
-                    return redirect()->back()
+                    return $this->redirectToCreateFormTab()
                         ->withErrors(['kpi_levels' => "Please select at least one level (CL or UL) for KPI #{$kpiNumber} in KRA #" . ($kraIndex + 1)])
                         ->withInput();
-                }
-                // Validate that only CL or UL are selected
-                $validLevels = ['CL', 'UL'];
-                foreach ($levels as $level) {
-                    if (!in_array($level, $validLevels)) {
-                        return redirect()->back()
-                            ->withErrors(['kpi_levels' => "Invalid level selected for KPI #{$kpiNumber} in KRA #" . ($kraIndex + 1)])
-                            ->withInput();
-                    }
                 }
             }
         }
@@ -3094,15 +3094,7 @@ class SuperAdminTemplateController extends Controller
                         $responsibleUnit = $responsibleUnits[$kraIndex][$kpiIndex] ?? '';
                         
                         // Get CL/UL levels for this KPI
-                        $levels = $kpiLevels[$kraIndex][$kpiIndex] ?? [];
-                        if (!is_array($levels)) {
-                            // Handle combined CL_UL value from dropdown
-                            if ($levels === 'CL_UL') {
-                                $levels = ['CL', 'UL'];
-                            } else {
-                                $levels = $levels ? [$levels] : [];
-                            }
-                        }
+                        $levels = $this->normalizeKpiLevelsFromRequest($kpiLevels[$kraIndex][$kpiIndex] ?? null);
                         // Format level display: "CL", "UL", or "CL / UL"
                         $levelDisplay = '';
                         if (in_array('CL', $levels) && in_array('UL', $levels)) {
@@ -3237,10 +3229,49 @@ class SuperAdminTemplateController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()
+            return $this->redirectToCreateFormTab()
                 ->withInput()
                 ->with('error', 'Failed to create form: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Redirect back to the Create Form tab (not Forms Management).
+     */
+    private function redirectToCreateFormTab(): RedirectResponse
+    {
+        return redirect()->route('super-admin.templates.index', ['tab' => 'create']);
+    }
+
+    /**
+     * Normalize KPI level input (CL, UL, or CL_UL) to ['CL'], ['UL'], or ['CL', 'UL'].
+     *
+     * @return array<int, string>
+     */
+    private function normalizeKpiLevelsFromRequest(mixed $levels): array
+    {
+        if (is_array($levels)) {
+            $normalized = [];
+            foreach ($levels as $level) {
+                if ($level === 'CL_UL') {
+                    $normalized = array_merge($normalized, ['CL', 'UL']);
+                } elseif (in_array($level, ['CL', 'UL'], true)) {
+                    $normalized[] = $level;
+                }
+            }
+
+            return array_values(array_unique($normalized));
+        }
+
+        if ($levels === 'CL_UL') {
+            return ['CL', 'UL'];
+        }
+
+        if (in_array($levels, ['CL', 'UL'], true)) {
+            return [$levels];
+        }
+
+        return [];
     }
 
     /**
