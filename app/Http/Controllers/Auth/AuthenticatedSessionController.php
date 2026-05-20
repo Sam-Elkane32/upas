@@ -62,10 +62,13 @@ class AuthenticatedSessionController extends Controller
     {
         Auth::guard('web')->logout();
 
-        $request->session()->invalidate();
+        try {
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        } catch (\Throwable) {
+            // Session may already be invalid after CSRF expiry; still send user to login.
+        }
 
-        $request->session()->regenerateToken();
-
-        return redirect('/');
+        return redirect()->route('login')->with('status', __('You have been logged out.'));
     }
 }
