@@ -32,7 +32,7 @@
     "APP_SERVICES_CACHE": "/tmp/services.php",
     "VIEW_COMPILED_PATH": "/tmp/views",
     "LARAVEL_STORAGE_PATH": "/tmp/storage",
-    "SESSION_DRIVER": "cookie",
+    "SESSION_DRIVER": "database",
     "CACHE_STORE": "array",
     "LOG_CHANNEL": "stderr",
     "LOG_LEVEL": "error",

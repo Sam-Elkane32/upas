@@ -84,7 +84,7 @@ class SuperAdminTemplateController extends Controller
         // Get active tab (default to 'forms'; stay on create after failed form submission)
         $activeTab = $request->get('tab');
         if ($activeTab === null) {
-            $activeTab = ($request->session()->has('errors') && $request->old('division'))
+            $activeTab = ($request->session()->has('errors') || $request->session()->get('form_create_failed'))
                 ? 'create'
                 : 'forms';
         }
@@ -2996,9 +2996,7 @@ class SuperAdminTemplateController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return $this->redirectToCreateFormTab()
-                ->withErrors($validator)
-                ->withInput();
+            return $this->redirectToCreateFormTabWithFailure($validator);
         }
 
         // Derive form_title from division selection
@@ -3016,9 +3014,7 @@ class SuperAdminTemplateController extends Controller
         $kpiNumbers = $request->kpi_numbers;
         foreach ($kpiNumbers as $kraIndex => $kraKpiNumbers) {
             if (count($kraKpiNumbers) !== count(array_unique($kraKpiNumbers))) {
-                return $this->redirectToCreateFormTab()
-                    ->withErrors(['kpi_numbers' => "KPI numbers must be unique within each KRA. Duplicate found in KRA #" . ($kraIndex + 1)])
-                    ->withInput();
+                return $this->redirectToCreateFormTabWithFailure(null, "KPI numbers must be unique within each KRA. Duplicate found in KRA #" . ($kraIndex + 1), ['kpi_numbers' => "KPI numbers must be unique within each KRA. Duplicate found in KRA #" . ($kraIndex + 1)]);
             }
         }
         
@@ -3028,9 +3024,8 @@ class SuperAdminTemplateController extends Controller
             foreach ($kraKpiNumbers as $kpiIndex => $kpiNumber) {
                 $levels = $this->normalizeKpiLevelsFromRequest($kpiLevels[$kraIndex][$kpiIndex] ?? null);
                 if (empty($levels)) {
-                    return $this->redirectToCreateFormTab()
-                        ->withErrors(['kpi_levels' => "Please select at least one level (CL or UL) for KPI #{$kpiNumber} in KRA #" . ($kraIndex + 1)])
-                        ->withInput();
+                    $levelMessage = "Please select at least one level (CL or UL) for KPI #{$kpiNumber} in KRA #" . ($kraIndex + 1);
+                    return $this->redirectToCreateFormTabWithFailure(null, $levelMessage, ['kpi_levels' => $levelMessage]);
                 }
             }
         }
@@ -3229,9 +3224,12 @@ class SuperAdminTemplateController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->redirectToCreateFormTab()
-                ->withInput()
-                ->with('error', 'Failed to create form: ' . $e->getMessage());
+            report($e);
+
+            return $this->redirectToCreateFormTabWithFailure(
+                null,
+                'Failed to create form: ' . $e->getMessage()
+            );
         }
     }
 
@@ -3241,6 +3239,32 @@ class SuperAdminTemplateController extends Controller
     private function redirectToCreateFormTab(): RedirectResponse
     {
         return redirect()->route('super-admin.templates.index', ['tab' => 'create']);
+    }
+
+    /**
+     * Redirect to Create Form after a failed save (keeps input + shows error).
+     */
+    private function redirectToCreateFormTabWithFailure(
+        $validator = null,
+        ?string $errorMessage = null,
+        array $errorBag = []
+    ): RedirectResponse {
+        $redirect = $this->redirectToCreateFormTab()
+            ->with('form_create_failed', true)
+            ->withInput();
+
+        if ($validator !== null) {
+            $redirect->withErrors($validator);
+            $errorMessage = $errorMessage ?: $validator->errors()->first();
+        } elseif ($errorBag !== []) {
+            $redirect->withErrors($errorBag);
+        }
+
+        if ($errorMessage) {
+            $redirect->with('error', $errorMessage);
+        }
+
+        return $redirect;
     }
 
     /**

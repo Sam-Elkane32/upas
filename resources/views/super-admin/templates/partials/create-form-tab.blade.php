@@ -271,6 +271,62 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        const CREATE_FORM_DRAFT_KEY = 'uaps_create_form_draft';
+        const shouldRestoreDraft = @json($errors->any() || session('form_create_failed'));
+
+        function saveCreateFormDraft() {
+            const form = document.getElementById('create-form-form');
+            if (!form) return;
+            const fd = new FormData(form);
+            const draft = {};
+            for (const [key, value] of fd.entries()) {
+                if (Object.prototype.hasOwnProperty.call(draft, key)) {
+                    if (!Array.isArray(draft[key])) draft[key] = [draft[key]];
+                    draft[key].push(value);
+                } else {
+                    draft[key] = value;
+                }
+            }
+            try {
+                sessionStorage.setItem(CREATE_FORM_DRAFT_KEY, JSON.stringify(draft));
+            } catch (_) {}
+        }
+
+        function restoreCreateFormDraft() {
+            let draft;
+            try {
+                draft = JSON.parse(sessionStorage.getItem(CREATE_FORM_DRAFT_KEY) || 'null');
+            } catch (_) {
+                return;
+            }
+            if (!draft || typeof draft !== 'object') return;
+            const form = document.getElementById('create-form-form');
+            if (!form) return;
+
+            for (const [name, val] of Object.entries(draft)) {
+                const values = Array.isArray(val) ? val : [val];
+                const els = form.querySelectorAll('[name="' + name.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"]');
+                els.forEach((el, i) => {
+                    const v = values[i] ?? values[0] ?? '';
+                    if (el.type === 'checkbox') {
+                        el.checked = (v === el.value || v === '1' || v === 'on');
+                    } else {
+                        el.value = v;
+                    }
+                });
+            }
+
+            const kraContainerEl = document.getElementById('kra-container');
+            if (kraContainerEl) {
+                kraContainerEl.querySelectorAll('.responsible-unit-multi').forEach(function(w) {
+                    if (typeof initResponsibleUnitMulti === 'function') initResponsibleUnitMulti(w);
+                    if (typeof syncResponsibleUnitToHidden === 'function') syncResponsibleUnitToHidden(w);
+                });
+            }
+            if (typeof updateTargetValueIndices === 'function') updateTargetValueIndices();
+            if (typeof initializeTargetValueListeners === 'function') initializeTargetValueListeners();
+        }
+
         const kraContainer = document.getElementById('kra-container');
         const addKraBtn = document.getElementById('add-kra');
         
@@ -941,6 +997,7 @@
         const createFormForm = document.getElementById('create-form-form');
         if (createFormForm) {
             createFormForm.addEventListener('submit', function(e) {
+                saveCreateFormDraft();
                 const allKpiItems = kraContainer.querySelectorAll('.kpi-item');
                 let hasError = false;
                 
@@ -1151,6 +1208,10 @@
             });
         });
         ruObserver.observe(kraContainer, { childList: true, subtree: true });
+
+        if (shouldRestoreDraft) {
+            restoreCreateFormDraft();
+        }
     });
 </script>
 

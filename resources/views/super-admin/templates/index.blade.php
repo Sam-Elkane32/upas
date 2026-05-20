@@ -14,6 +14,11 @@
                 @include('super-admin.templates.partials.create-form-tab')
             @else
                 @include('super-admin.templates.partials.forms-list-tab')
+                @if(session('success'))
+                    <script>
+                        try { sessionStorage.removeItem('uaps_create_form_draft'); } catch (_) {}
+                    </script>
+                @endif
             @endif
         </div>
     </div>
