@@ -49,13 +49,14 @@
                                 $isEvidenceCol = ($evidenceColKey !== null && $header === $evidenceColKey);
                                 $displayValue = (trim(strtolower($value)) === 'summary') ? '-' : ($value ?: '-');
                                 $cellBlue = $isSummaryRow ? 'text-blue-700 font-medium' : 'text-gray-900';
+                                $evidenceSelection = old('evidence_qa.'.$index, $value);
                             @endphp
                             <td class="px-4 py-4 text-sm align-top whitespace-normal break-words {{ $cellBlue }} {{ $headerColumnClass($header) }}">
                                 @if($isEvidenceCol && !$isSummaryRow && ($evidenceEditable ?? true))
                                     <select name="evidence_qa[{{ $index }}]" class="block w-full min-w-[8rem] max-w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                                         <option value="">Select...</option>
-                                        <option value="Yes" {{ $value === 'Yes' || $value === 'YES' ? 'selected' : '' }}>Yes</option>
-                                        <option value="No" {{ $value === 'No' || $value === 'NO' ? 'selected' : '' }}>No</option>
+                                        <option value="Yes" {{ $evidenceSelection === 'Yes' || $evidenceSelection === 'YES' ? 'selected' : '' }}>Yes</option>
+                                        <option value="No" {{ $evidenceSelection === 'No' || $evidenceSelection === 'NO' ? 'selected' : '' }}>No</option>
                                     </select>
                                     @if($showEvidenceHint ?? true)
                                         <span class="text-xs text-gray-500 mt-0.5 block">QA sets Yes/No</span>

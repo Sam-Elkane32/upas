@@ -317,10 +317,12 @@ class CampusAdminApprovalController extends Controller
                 $rating = 'Satisfactory';
             }
 
+            $this->mergeEvidenceQaIntoSubmission($submission, $request);
+
             // Create or update approval (targets from Form; accomplishments from planning coordinator submission)
             $approval = Approval::updateOrCreate(
                 ['submission_id' => (int) $submission->id],
-                [
+                array_merge($this->approvalMetaForSubmission($submission), [
                     'target_q1' => $targetQ1,
                     'target_q2' => $targetQ2,
                     'target_q3' => $targetQ3,
@@ -337,26 +339,8 @@ class CampusAdminApprovalController extends Controller
                     'remarks' => $request->remarks,
                     'verified_by' => (int) $user->id,
                     'validated_by' => (int) $user->id,
-                ]
+                ])
             );
-
-            // Merge QA "Evidence Verified" column (Yes/No) into submission table_data if present
-            $evidenceKey = $this->getEvidenceVerifiedByQAColumnKey($submission->table_data);
-            if ($evidenceKey && $request->has('evidence_qa') && is_array($request->evidence_qa)) {
-                $tableData = $submission->table_data ?? [];
-                foreach ($request->evidence_qa as $rowIndex => $value) {
-                    $rowIndex = (int) $rowIndex;
-                    if (isset($tableData[$rowIndex]) && is_array($tableData[$rowIndex])) {
-                        if (($tableData[$rowIndex]['_meta']['row_type'] ?? 'data') === 'summary') {
-                            continue;
-                        }
-                        $normalized = in_array($value, ['Yes', 'YES'], true) ? 'Yes' : (in_array($value, ['No', 'NO'], true) ? 'No' : '');
-                        $tableData[$rowIndex][$evidenceKey] = $normalized;
-                    }
-                }
-                $submission->table_data = $tableData;
-                $submission->save();
-            }
 
             // Handle different actions
             switch ($request->action) {
@@ -481,7 +465,9 @@ class CampusAdminApprovalController extends Controller
                 throw new \Exception('Approval record not found.');
             }
 
-            $approval->update([
+            $this->mergeEvidenceQaIntoSubmission($submission, $request);
+
+            $approval->update(array_merge($this->approvalMetaForSubmission($submission, $approval), [
                 'target_q1' => $targetQ1,
                 'target_q2' => $targetQ2,
                 'target_q3' => $targetQ3,
@@ -498,25 +484,7 @@ class CampusAdminApprovalController extends Controller
                 'remarks' => $request->remarks,
                 'verified_by' => (int) $user->id,
                 'validated_by' => (int) $user->id,
-            ]);
-
-            // Merge QA "Evidence Verified" column (Yes/No) into submission table_data if present
-            $evidenceKey = $this->getEvidenceVerifiedByQAColumnKey($submission->table_data);
-            if ($evidenceKey && $request->has('evidence_qa') && is_array($request->evidence_qa)) {
-                $tableData = $submission->table_data ?? [];
-                foreach ($request->evidence_qa as $rowIndex => $value) {
-                    $rowIndex = (int) $rowIndex;
-                    if (isset($tableData[$rowIndex]) && is_array($tableData[$rowIndex])) {
-                        if (($tableData[$rowIndex]['_meta']['row_type'] ?? 'data') === 'summary') {
-                            continue;
-                        }
-                        $normalized = in_array($value, ['Yes', 'YES'], true) ? 'Yes' : (in_array($value, ['No', 'NO'], true) ? 'No' : '');
-                        $tableData[$rowIndex][$evidenceKey] = $normalized;
-                    }
-                }
-                $submission->table_data = $tableData;
-                $submission->save();
-            }
+            ]));
 
             // Handle different actions
             switch ($request->action) {
@@ -692,6 +660,51 @@ class CampusAdminApprovalController extends Controller
             'user_id' => $user->id,
             'what_edited' => $text,
         ]);
+    }
+
+    /**
+     * Default accomp_term / sdp_ref for approvals when the review form does not collect them.
+     *
+     * @return array{accomp_term: ?string, sdp_ref: ?string}
+     */
+    protected function approvalMetaForSubmission(Submission $submission, ?Approval $existing = null): array
+    {
+        $accompTerm = $existing?->accomp_term;
+        if ($accompTerm === null || $accompTerm === '') {
+            $accompTerm = $submission->quarter
+                ?: ($submission->form_title ?? $submission->kpi_title ?? 'N/A');
+        }
+
+        return [
+            'accomp_term' => $accompTerm,
+            'sdp_ref' => $existing?->sdp_ref,
+        ];
+    }
+
+    /**
+     * Persist QA Yes/No evidence selections into submission table_data.
+     */
+    protected function mergeEvidenceQaIntoSubmission(Submission $submission, Request $request): void
+    {
+        $evidenceKey = $this->getEvidenceVerifiedByQAColumnKey($submission->table_data);
+        if (! $evidenceKey || ! $request->has('evidence_qa') || ! is_array($request->evidence_qa)) {
+            return;
+        }
+
+        $tableData = $submission->table_data ?? [];
+        foreach ($request->evidence_qa as $rowIndex => $value) {
+            $rowIndex = (int) $rowIndex;
+            if (! isset($tableData[$rowIndex]) || ! is_array($tableData[$rowIndex])) {
+                continue;
+            }
+            if (($tableData[$rowIndex]['_meta']['row_type'] ?? 'data') === 'summary') {
+                continue;
+            }
+            $normalized = in_array($value, ['Yes', 'YES'], true) ? 'Yes' : (in_array($value, ['No', 'NO'], true) ? 'No' : '');
+            $tableData[$rowIndex][$evidenceKey] = $normalized;
+        }
+        $submission->table_data = $tableData;
+        $submission->save();
     }
 
     /**
