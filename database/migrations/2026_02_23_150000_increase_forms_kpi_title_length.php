@@ -15,11 +15,13 @@ return new class extends Migration
             return;
         }
 
-        if (DB::connection()->getDriverName() !== 'mysql') {
-            return;
-        }
+        $driver = DB::connection()->getDriverName();
 
-        DB::statement('ALTER TABLE forms MODIFY COLUMN kpi_title LONGTEXT NULL');
+        if ($driver === 'pgsql') {
+            DB::statement('ALTER TABLE forms ALTER COLUMN kpi_title TYPE TEXT');
+        } elseif ($driver === 'mysql') {
+            DB::statement('ALTER TABLE forms MODIFY COLUMN kpi_title LONGTEXT NULL');
+        }
     }
 
     public function down(): void
@@ -28,10 +30,12 @@ return new class extends Migration
             return;
         }
 
-        if (DB::connection()->getDriverName() !== 'mysql') {
-            return;
-        }
+        $driver = DB::connection()->getDriverName();
 
-        DB::statement('ALTER TABLE forms MODIFY COLUMN kpi_title VARCHAR(500) NULL');
+        if ($driver === 'pgsql') {
+            DB::statement('ALTER TABLE forms ALTER COLUMN kpi_title TYPE VARCHAR(255)');
+        } elseif ($driver === 'mysql') {
+            DB::statement('ALTER TABLE forms MODIFY COLUMN kpi_title VARCHAR(500) NULL');
+        }
     }
 };
