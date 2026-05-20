@@ -1263,6 +1263,7 @@
                                 var READ_ONLY_TEMPLATE_VIEW = @json($readOnly);
                                 window.TEMPLATE_SHOW_READ_ONLY = READ_ONLY_TEMPLATE_VIEW;
                                 window.tableDataDirty = false;
+                                @include('super-admin.templates.partials.template-autosave-queue')
                                 if (READ_ONLY_TEMPLATE_VIEW) {
                                     window.performSaveTableData = function(opts) {
                                         opts = opts || {};
@@ -2935,13 +2936,17 @@
                                         autoSaveTimeout = null;
                                         if (!window.tableDataDirty) return;
                                         if (typeof window.performSaveTableData !== 'function') return;
+                                        if (window.__templateAutosave && window.__templateAutosave.inFlight) {
+                                            window.__templateAutosave.queued = true;
+                                            return;
+                                        }
                                         setAutosaveStatus('saving');
                                         window.performSaveTableData({
                                             onSuccess: function() {
                                                 setAutosaveStatus('saved');
                                             }
                                         });
-                                    }, 100);
+                                    }, 1500);
                                 }
                                 function saveOnUnload(e) {
                                     if (!window.tableDataDirty) return;
@@ -9147,18 +9152,7 @@
                                 });
                                 var addRowBtn = document.getElementById('add-row-btn');
                                 if (addRowBtn) addRowBtn.addEventListener('click', function(e) { e.preventDefault(); addNewRowMulti(null); });
-                                var lastSaveAttempt = 0;
-                                setInterval(function() {
-                                    if (!window.tableDataDirty || typeof window.performSaveTableData !== 'function') return;
-                                    if (Date.now() - lastSaveAttempt < 800) return;
-                                    lastSaveAttempt = Date.now();
-                                    setAutosaveStatus('saving');
-                                    window.performSaveTableData({
-                                        onSuccess: function() { setAutosaveStatus('saved'); },
-                                        onDone: function() {}
-                                    });
-                                }, 1000);
-                                window.performSaveTableData = function(opts) {
+                                window.__wrapTemplateTableSave(function runPerformSaveTableData(opts) {
                                     opts = opts || {};
                                     normalizeAllSectionsBlueRows();
                                     if (tableBody && typeof window.placeManualTotalRowAfterBlueResults === 'function') {
@@ -9172,7 +9166,7 @@
                                     var totalRows = bySub.reduce(function(sum, s) { return sum + (s.table_data ? s.table_data.length : 0); }, 0);
                                     if (totalRows === 0) {
                                         if (typeof window.showToast === 'function') window.showToast('notice', 'Add at least one row before saving.');
-                                        if (opts.onDone) opts.onDone();
+                                        window.__templateAutosaveFinish(opts);
                                         return;
                                     }
                                     if (Array.isArray(pendingCompareCampusTargetResults) && pendingCompareCampusTargetResults.length > 0) {
@@ -9217,35 +9211,48 @@
                                     };
                                     var fetchOpts = {
                                         method: 'POST',
-                                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+                                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest', 'X-Draft-Autosave': '1' },
                                         body: JSON.stringify(payload)
                                     };
                                     if (opts.keepalive) fetchOpts.keepalive = true;
                                     fetch(saveUrl, fetchOpts)
                                     .then(function(r) {
-                                        if (!r.ok) throw new Error('Server returned ' + r.status);
+                                        if (!r.ok) {
+                                            var e = new Error('Server returned ' + r.status);
+                                            e.httpStatus = r.status;
+                                            throw e;
+                                        }
                                         return r.json();
                                     })
                                     .then(function(res) {
-                                        if (opts.onDone) opts.onDone();
                                         if (res.success) {
+                                            window.__templateAutosave.retryCount = 0;
                                             window.tableDataDirty = false;
                                             if (opts.onSuccess) opts.onSuccess();
                                             else {
                                                 setAutosaveStatus('saved');
                                             }
+                                            window.__templateAutosaveFinish(opts);
                                         } else {
                                             setAutosaveStatus('error');
                                             if (typeof window.showToast === 'function') window.showToast('error', res.message || 'Save failed.');
+                                            window.__templateAutosaveFinish(opts);
                                         }
                                     })
                                     .catch(function(err) {
-                                        if (opts.onDone) opts.onDone();
-                                        setAutosaveStatus('error');
                                         console.error('Save table data error:', err);
-                                        if (typeof window.showToast === 'function') window.showToast('error', 'Failed to save: ' + (err.message || 'Please try again.') + ' Changes will retry on next edit.');
+                                        var httpStatus = err.httpStatus || 0;
+                                        if (!httpStatus) {
+                                            var m = String(err.message || '').match(/(\d{3})/);
+                                            httpStatus = m ? parseInt(m[1], 10) : 0;
+                                        }
+                                        window.__templateAutosaveHandleFailure(opts, httpStatus, function() {
+                                            if (typeof window.showToast === 'function') {
+                                                window.showToast('error', 'Failed to save: ' + (err.message || 'Please try again.') + ' Changes will retry on next edit.');
+                                            }
+                                        });
                                     });
-                                };
+                                });
                                 updateDeleteBtnMulti();
                                 normalizeAllSectionsBlueRows();
                                 if (tableBody && typeof window.placeManualTotalRowAfterBlueResults === 'function') {
@@ -9439,6 +9446,7 @@
                             @else
                             document.addEventListener('DOMContentLoaded', function() {
                                 window.tableDataDirty = false;
+                                @include('super-admin.templates.partials.template-autosave-queue')
                                 const addRowBtn = document.getElementById('add-row-btn');
                                 const tableBody = document.getElementById('table-body');
                                 const fields = @json($fields);
@@ -9993,12 +10001,12 @@
                                 // Fallback saver for legacy/simple mode only.
                                 // Do NOT override the multi-block saver above (it persists CTC/grand totals/by_submission).
                                 if (typeof window.performSaveTableData !== 'function') {
-                                    window.performSaveTableData = function(opts) {
+                                    window.__wrapTemplateTableSave(function runPerformSaveTableDataSimple(opts) {
                                         opts = opts || {};
                                         var tableData = collectTableData();
                                         if (tableData.length === 0) {
                                             if (typeof window.showToast === 'function') window.showToast('notice', 'Add at least one row before saving.');
-                                            if (opts.onDone) opts.onDone();
+                                            window.__templateAutosaveFinish(opts);
                                             return;
                                         }
                                         var saveUrl = '{{ route("super-admin.templates.save-table-data", $template) }}';
@@ -10010,28 +10018,40 @@
                                                 'Content-Type': 'application/json',
                                                 'Accept': 'application/json',
                                                 'X-CSRF-TOKEN': token,
-                                                'X-Requested-With': 'XMLHttpRequest'
+                                                'X-Requested-With': 'XMLHttpRequest',
+                                                'X-Draft-Autosave': '1'
                                             },
                                             body: JSON.stringify({ table_data: tableData })
                                         })
-                                        .then(function(r) { return r.json(); })
+                                        .then(function(r) {
+                                            if (!r.ok) {
+                                                var e = new Error('Server returned ' + r.status);
+                                                e.httpStatus = r.status;
+                                                throw e;
+                                            }
+                                            return r.json();
+                                        })
                                         .then(function(res) {
-                                            if (opts.onDone) opts.onDone();
                                             if (res.success) {
+                                                window.__templateAutosave.retryCount = 0;
                                                 window.tableDataDirty = false;
                                                 if (opts.onSuccess) opts.onSuccess();
-                                                else {
-                                                    if (typeof window.showToast === 'function') window.showToast('success', res.message || 'Saved successfully.');
+                                                else if (typeof window.showToast === 'function') {
+                                                    window.showToast('success', res.message || 'Saved successfully.');
                                                 }
+                                                window.__templateAutosaveFinish(opts);
                                             } else {
                                                 if (typeof window.showToast === 'function') window.showToast('error', res.message || 'Save failed.');
+                                                window.__templateAutosaveFinish(opts);
                                             }
                                         })
-                                        .catch(function() {
-                                            if (opts.onDone) opts.onDone();
-                                            if (typeof window.showToast === 'function') window.showToast('error', 'Failed to save table data.');
+                                        .catch(function(err) {
+                                            var httpStatus = err.httpStatus || 0;
+                                            window.__templateAutosaveHandleFailure(opts, httpStatus, function() {
+                                                if (typeof window.showToast === 'function') window.showToast('error', 'Failed to save table data.');
+                                            });
                                         });
-                                    };
+                                    });
                                 }
                             });
                             @endif

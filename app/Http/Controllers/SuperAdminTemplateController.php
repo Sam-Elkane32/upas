@@ -1247,10 +1247,14 @@ class SuperAdminTemplateController extends Controller
             }
             $latestSubmission->update(['table_data' => $tableData]);
                 $this->syncTemplateFinalizedAccompFromTableData($template, $tableData);
-                $columnLabels = TableDataAuditHelper::getColumnLabelsFromTemplate($template);
-                $changes = TableDataAuditHelper::describeTableDataChanges($oldTableData, $tableData, $columnLabels);
-                $message = TableDataAuditHelper::buildAuditMessage('Super Admin: ', $changes);
-                $this->logTemplateEdit($template, $message);
+                if ($this->isDraftAutosaveRequest($request)) {
+                    $this->logTemplateEdit($template, 'Super Admin: autosaved table data.');
+                } else {
+                    $columnLabels = TableDataAuditHelper::getColumnLabelsFromTemplate($template);
+                    $changes = TableDataAuditHelper::describeTableDataChanges($oldTableData, $tableData, $columnLabels);
+                    $message = TableDataAuditHelper::buildAuditMessage('Super Admin: ', $changes);
+                    $this->logTemplateEdit($template, $message);
+                }
             } else {
                 $campusName = $template->campus_code
                     ? (optional($template->campus)->name ?? $template->campus_code)
@@ -1286,10 +1290,14 @@ class SuperAdminTemplateController extends Controller
                     'is_draft' => true,
                 ]);
                 $this->syncTemplateFinalizedAccompFromTableData($template, $tableData);
-                $columnLabels = TableDataAuditHelper::getColumnLabelsFromTemplate($template);
-                $changes = TableDataAuditHelper::describeTableDataChanges([], $tableData, $columnLabels);
-                $message = TableDataAuditHelper::buildAuditMessage('Super Admin: ', $changes);
-                $this->logTemplateEdit($template, $message);
+                if ($this->isDraftAutosaveRequest($request)) {
+                    $this->logTemplateEdit($template, 'Super Admin: autosaved table data.');
+                } else {
+                    $columnLabels = TableDataAuditHelper::getColumnLabelsFromTemplate($template);
+                    $changes = TableDataAuditHelper::describeTableDataChanges([], $tableData, $columnLabels);
+                    $message = TableDataAuditHelper::buildAuditMessage('Super Admin: ', $changes);
+                    $this->logTemplateEdit($template, $message);
+                }
             }
 
             DB::commit();
@@ -2035,7 +2043,11 @@ class SuperAdminTemplateController extends Controller
                 ];
             }
             $template->update(['fields_json' => $fieldsJson]);
-            $this->logTemplateEdit($template, 'Updated submission table data for multiple Planning Coordinators.');
+            if ($this->isDraftAutosaveRequest($request)) {
+                $this->logTemplateEdit($template, 'Super Admin: autosaved table data.');
+            } else {
+                $this->logTemplateEdit($template, 'Updated submission table data for multiple Planning Coordinators.');
+            }
             DB::commit();
             return response()->json(['success' => true, 'message' => 'Table data saved. It will appear in Audit Trailing.']);
         } catch (\Exception $e) {
@@ -3330,6 +3342,11 @@ class SuperAdminTemplateController extends Controller
     /**
      * Log a template edit for Audit Trailing (who, what, when).
      */
+    private function isDraftAutosaveRequest(Request $request): bool
+    {
+        return $request->header('X-Draft-Autosave') === '1';
+    }
+
     private function logTemplateEdit(Template $template, string $whatEdited): void
     {
         if (! Schema::hasTable('template_edit_history')) {

@@ -886,19 +886,6 @@
                                             if (firstCell && typeof setCellSelected === 'function') setCellSelected(newRow, firstCell, true);
                                             updateDeleteBtnMulti();
                                             scheduleAutoSave();
-                                            setAutosaveStatus('saving');
-                                            function triggerSave() {
-                                                if (typeof window.performSaveTableData === 'function') {
-                                                    window.performSaveTableData({
-                                                        onSuccess: function() { setAutosaveStatus('saved'); },
-                                                        onDone: function() {}
-                                                    });
-                                                }
-                                            }
-                                            triggerSave();
-                                            setTimeout(triggerSave, 100);
-                                            setTimeout(triggerSave, 400);
-                                            setTimeout(triggerSave, 800);
                                             return;
                                         } else {
                                             templateRow = primarySelected;
@@ -965,9 +952,6 @@
                                     if (firstCell && typeof setCellSelected === 'function') setCellSelected(newRow, firstCell, true);
                                     updateDeleteBtnMulti();
                                     scheduleAutoSave();
-                                    setTimeout(function() {
-                                        if (typeof window.performSaveTableData === 'function') window.performSaveTableData();
-                                    }, 150);
                                     return newRow;
                                 }
 
