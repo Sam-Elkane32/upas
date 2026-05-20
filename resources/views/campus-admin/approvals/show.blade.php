@@ -4,7 +4,7 @@
     </x-slot>
 
     <div class="pt-2 pb-4">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="w-full min-w-0 max-w-full">
             
             <!-- Floating Header Section -->
             <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-6">
@@ -105,65 +105,11 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
                     <h4 class="text-lg font-medium text-gray-900 mb-4">Submitted Data</h4>
-                    @if($submission->table_data && count($submission->table_data) > 0)
-                        @php
-                            $approvalTableRows = \App\Support\SubmissionTableData::asArray($submission->table_data);
-                            $tableHeaders = \App\Support\SubmissionTableData::dataColumnKeys($approvalTableRows);
-                        @endphp
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        @if(count($tableHeaders) > 0)
-                                            @foreach($tableHeaders as $header)
-                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    {{ ucwords(str_replace('_', ' ', $header)) }}
-                                                </th>
-                                            @endforeach
-                                        @endif
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
-                                    @foreach($submission->table_data as $row)
-                                        @php
-                                            $isSummaryRow = ($row['_meta']['row_type'] ?? 'data') === 'summary';
-                                        @endphp
-                                        <tr class="{{ $isSummaryRow ? 'bg-blue-100 font-semibold' : 'hover:bg-gray-50' }}">
-                                            @foreach($tableHeaders as $header)
-                                                @php
-                                                    $value = $row[$header] ?? '';
-                                                    if (is_array($value) || is_object($value)) {
-                                                        $value = json_encode($value);
-                                                    }
-                                                    $value = (string) ($value ?? '');
-                                                    $isLink = $value !== '' && filter_var($value, FILTER_VALIDATE_URL);
-                                                    $headerLower = strtolower($header);
-                                                    $isEvidenceCol = str_contains($headerLower, 'evidence') && (str_contains($headerLower, 'verified') || str_contains($headerLower, 'qa'));
-                                                    // Data rows: blue only for links (not NO column)
-                                                    $dataRowBlue = $isLink || $isEvidenceCol;
-                                                    $isSummaryValue = $isSummaryRow && $value !== '' && strtolower(trim($value)) !== 'summary';
-                                                    $summaryRowBlue = $isSummaryRow && $isSummaryValue;
-                                                    $displayValue = $value;
-                                                    if ($isSummaryRow && strtolower(trim($value)) === 'summary') {
-                                                        $displayValue = '-';
-                                                    }
-                                                @endphp
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm {{ $isSummaryRow ? 'bg-blue-100 ' . ($summaryRowBlue ? 'text-blue-600 font-semibold' : 'text-gray-800') : ($dataRowBlue ? 'text-blue-600 font-medium' : 'text-gray-900') }}">
-                                                    @if($isLink)
-                                                        <a href="{{ $value }}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">{{ $displayValue }}</a>
-                                                    @else
-                                                        {{ $displayValue ?: '-' }}
-                                                    @endif
-                                                </td>
-                                            @endforeach
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @else
-                        <p class="text-sm text-gray-500 text-center py-4">No data available</p>
-                    @endif
+                    @include('partials.submission-review-table', [
+                        'submission' => $submission,
+                        'evidenceEditable' => false,
+                        'showEvidenceHint' => false,
+                    ])
                 </div>
             </div>
 
