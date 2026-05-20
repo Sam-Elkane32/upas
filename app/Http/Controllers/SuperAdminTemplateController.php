@@ -2316,11 +2316,27 @@ class SuperAdminTemplateController extends Controller
                 }
             }
 
-            // Accept both multi-assign and legacy single input names
-            $assignedUserIds = $request->input('assigned_user_ids', []);
-            if (!is_array($assignedUserIds)) {
-                $assignedUserIds = $assignedUserIds ? [$assignedUserIds] : [];
+            // Accept multi-select from standard array, JS mirror array, JSON mirror, and legacy single input.
+            $assignedUserIdsRaw = $request->input('assigned_user_ids', []);
+            if (!is_array($assignedUserIdsRaw)) {
+                $assignedUserIdsRaw = $assignedUserIdsRaw ? [$assignedUserIdsRaw] : [];
             }
+
+            $assignedUserIdsMirror = $request->input('assigned_user_ids_mirror', []);
+            if (!is_array($assignedUserIdsMirror)) {
+                $assignedUserIdsMirror = $assignedUserIdsMirror ? [$assignedUserIdsMirror] : [];
+            }
+
+            $assignedUserIdsFromJson = [];
+            $assignedUserIdsJson = $request->input('assigned_user_ids_json');
+            if (is_string($assignedUserIdsJson) && trim($assignedUserIdsJson) !== '') {
+                $decodedAssignedUserIds = json_decode($assignedUserIdsJson, true);
+                if (is_array($decodedAssignedUserIds)) {
+                    $assignedUserIdsFromJson = $decodedAssignedUserIds;
+                }
+            }
+
+            $assignedUserIds = array_merge($assignedUserIdsRaw, $assignedUserIdsMirror, $assignedUserIdsFromJson);
             if (empty($assignedUserIds) && $request->filled('assigned_user_id')) {
                 $assignedUserIds = [$request->input('assigned_user_id')];
             }

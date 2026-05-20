@@ -277,6 +277,8 @@
                                 </option>
                             @endforeach
                         </select>
+                        <input type="hidden" id="assigned_user_ids_json" name="assigned_user_ids_json" value="">
+                        <div id="assigned-user-ids-mirror"></div>
                         <p class="mt-1 text-xs text-gray-500">Select one or more. Campus Targets table below will show one row per selected user's campus.</p>
                     </div>
                 </div>
@@ -1682,6 +1684,30 @@
             if (document.getElementById('assigned_user_ids')) {
                 var assignedSelect = jQuery('#assigned_user_ids');
                 assignedSelect.select2({ width: '100%', placeholder: 'Select Planning Coordinator(s)', allowClear: true, closeOnSelect: false });
+                var assignedIdsJsonInput = document.getElementById('assigned_user_ids_json');
+                var assignedMirrorWrap = document.getElementById('assigned-user-ids-mirror');
+                function syncAssignedUserMirrorInputs() {
+                    var el = document.getElementById('assigned_user_ids');
+                    if (!el) return;
+                    var selectedIds = [];
+                    Array.prototype.forEach.call(el.options, function(opt) {
+                        if (opt.selected && opt.value !== '') selectedIds.push(String(opt.value));
+                    });
+                    if (assignedIdsJsonInput) {
+                        assignedIdsJsonInput.value = JSON.stringify(selectedIds);
+                    }
+                    if (assignedMirrorWrap) {
+                        assignedMirrorWrap.innerHTML = '';
+                        selectedIds.forEach(function(id) {
+                            var hidden = document.createElement('input');
+                            hidden.type = 'hidden';
+                            hidden.name = 'assigned_user_ids_mirror[]';
+                            hidden.value = id;
+                            assignedMirrorWrap.appendChild(hidden);
+                        });
+                    }
+                }
+                assignedSelect.on('change', syncAssignedUserMirrorInputs);
 
                 var btnAll = document.getElementById('assigned-user-select-all');
                 var btnClear = document.getElementById('assigned-user-clear-all');
@@ -1701,6 +1727,11 @@
                         assignedSelect.trigger('change');
                     });
                 }
+                var editTemplateFormForAssigned = document.getElementById('edit-template-form');
+                if (editTemplateFormForAssigned) {
+                    editTemplateFormForAssigned.addEventListener('submit', syncAssignedUserMirrorInputs);
+                }
+                syncAssignedUserMirrorInputs();
             }
         });
     </script>
